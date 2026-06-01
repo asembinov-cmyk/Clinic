@@ -404,14 +404,23 @@ function PatientsTab({patients,appts,emr}){
 // ══════════════════════════════════════════════════════════════════════════════
 // DOCTORS
 // ══════════════════════════════════════════════════════════════════════════════
-function DoctorForm({form,setForm,saveDoc,saving,editing,fileRef,handlePhoto,slots}){
+function DoctorForm({form,setForm,saveDoc,saving,editing,fileRef,handlePhoto,slots,specialties}){
   return <div style={{display:'flex',flexDirection:'column',gap:12}}>
     <div style={{display:'flex',gap:14,alignItems:'center'}}>
       <div onClick={()=>fileRef.current.click()} style={{cursor:'pointer',flexShrink:0}}>{form.photo?<img src={form.photo} style={{width:64,height:64,borderRadius:'50%',objectFit:'cover',border:`3px solid ${form.color}`}}/>:<div style={{width:64,height:64,borderRadius:'50%',background:form.color+'18',border:`2px dashed ${form.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:form.color}}>📷</div>}</div>
       <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handlePhoto}/>
       <input placeholder="ФИО врача *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
     </div>
-    <input placeholder="Специальность" value={form.specialty} onChange={e=>setForm(f=>({...f,specialty:e.target.value}))}/>
+    {specialties&&specialties.length>0?(
+      <select value={form.specialty} onChange={e=>setForm(f=>({...f,specialty:e.target.value}))}>
+        <option value="">— Специализация —</option>
+        {specialties.map(s=><option key={s.id} value={s.name}>{s.name}</option>)}
+        <option value="__custom__">✏️ Ввести вручную...</option>
+      </select>
+    ):(
+      <input placeholder="Специальность" value={form.specialty} onChange={e=>setForm(f=>({...f,specialty:e.target.value}))}/>
+    )}
+    {form.specialty==='__custom__'&&<input placeholder="Введите специализацию" value={form.specialtyCustom||''} onChange={e=>setForm(f=>({...f,specialtyCustom:e.target.value,specialty:'__custom__'}))} autoFocus/>}
     <input placeholder="Телефон" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
     <textarea placeholder="Описание..." rows={3} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} style={{resize:'none'}}/>
     <Card style={{padding:'12px 14px'}}>
@@ -423,12 +432,20 @@ function DoctorForm({form,setForm,saveDoc,saving,editing,fileRef,handlePhoto,slo
   </div>;
 }
 
-function DoctorsTab({doctors}){
+function DoctorsTab({doctors,specialties}){
   const[showAdd,setShowAdd]=useState(false);const[sel,setSel]=useState(null);const[editing,setEditing]=useState(false);
-  const ef={name:'',specialty:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
+  const ef={name:'',specialty:'',specialtyCustom:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
   const[form,setForm]=useState(ef);const[saving,setSaving]=useState(false);const fileRef=useRef();const slots=genSlots('06:00','22:30');
   const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);};
-  const saveDoc=async()=>{if(!form.name.trim())return;setSaving(true);if(editing){await doctors.update(sel.id,form);setSel({...sel,...form});setEditing(false);}else{await doctors.insert(form);setShowAdd(false);}setSaving(false);};
+  const getSpecialty=()=>form.specialty==='__custom__'?(form.specialtyCustom||''):form.specialty;
+  const saveDoc=async()=>{
+    if(!form.name.trim())return;setSaving(true);
+    const data={...form,specialty:getSpecialty()};
+    delete data.specialtyCustom;
+    if(editing){await doctors.update(sel.id,data);setSel({...sel,...data});setEditing(false);}
+    else{await doctors.insert(data);setShowAdd(false);}
+    setSaving(false);
+  };
 
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><span style={{fontFamily:'Syne',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span><Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn></div>
@@ -443,7 +460,7 @@ function DoctorsTab({doctors}){
         </Card>)}
       </div>
     )}
-    {showAdd&&<Modal title="Новый врач" onClose={()=>setShowAdd(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={false} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots}/></Modal>}
+    {showAdd&&<Modal title="Новый врач" onClose={()=>setShowAdd(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={false} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots} specialties={specialties}/></Modal>}
     {sel&&!editing&&<Modal title="Карточка врача" onClose={()=>setSel(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
         <div style={{display:'flex',gap:14,alignItems:'center'}}><DoctorAvatar doctor={sel} size={60}/><div><div style={{fontFamily:'Syne',fontWeight:700,fontSize:18,color:C.text}}>{sel.name}</div>{sel.specialty&&<div style={{color:sel.color,fontSize:14}}>{sel.specialty}</div>}</div></div>
@@ -451,7 +468,7 @@ function DoctorsTab({doctors}){
         <div style={{display:'flex',gap:10}}><Btn full outline color={C.accent} onClick={()=>{setForm({name:sel.name,specialty:sel.specialty||'',phone:sel.phone||'',description:sel.description||'',photo:sel.photo||'',color:sel.color||DC[0],work_start:sel.work_start||'08:00',work_end:sel.work_end||'18:00',active:sel.active});setEditing(true);}}>Редактировать</Btn><Btn outline color={C.red} onClick={async()=>{await doctors.remove(sel.id);setSel(null);}}>Удалить</Btn></div>
       </div>
     </Modal>}
-    {editing&&<Modal title="Редактировать" onClose={()=>setEditing(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={true} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots}/></Modal>}
+    {editing&&<Modal title="Редактировать" onClose={()=>setEditing(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={true} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots} specialties={specialties}/></Modal>}
   </div>;
 }
 
@@ -548,6 +565,62 @@ function TasksTab({tasks,doctors}){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SPECIALTIES (справочник специализаций)
+// ══════════════════════════════════════════════════════════════════════════════
+function SpecialtiesTab({specialties,setSpecialties}){
+  const[showAdd,setShowAdd]=useState(false);
+  const[name,setName]=useState('');
+  const[desc,setDesc]=useState('');
+  const[saving,setSaving]=useState(false);
+
+  const save=async()=>{
+    if(!name.trim())return;
+    setSaving(true);
+    const existing=specialties.find(s=>s.name.toLowerCase()===name.toLowerCase());
+    if(existing){setSaving(false);return;}
+    const newS={id:Date.now(),name:name.trim(),desc:desc.trim()};
+    const updated=[...specialties,newS].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+    setSpecialties(updated);
+    await db.from('clinic_settings').upsert({key:'specialties',value:JSON.stringify(updated)});
+    setName('');setDesc('');setShowAdd(false);setSaving(false);
+  };
+
+  const remove=async(id)=>{
+    const updated=specialties.filter(s=>s.id!==id);
+    setSpecialties(updated);
+    await db.from('clinic_settings').upsert({key:'specialties',value:JSON.stringify(updated)});
+  };
+
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+      <span style={{fontFamily:'Syne',fontWeight:700,fontSize:16,color:C.text}}>Специализации ({specialties.length})</span>
+      <Btn small onClick={()=>setShowAdd(true)}>+ Добавить</Btn>
+    </div>
+    {specialties.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40}}>
+      <div style={{fontSize:40,marginBottom:12}}>🩺</div>
+      <div>Добавьте специализации врачей</div>
+      <div style={{fontSize:12,color:C.muted2,marginTop:6}}>Например: Терапевт, Хирург, Стоматолог...</div>
+    </div>}
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {specialties.map(s=><Card key={s.id} style={{padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div>
+          <div style={{fontFamily:'Syne',fontWeight:600,fontSize:15,color:C.text}}>{s.name}</div>
+          {s.desc&&<div style={{color:C.muted,fontSize:12,marginTop:3}}>{s.desc}</div>}
+        </div>
+        <button onClick={()=>remove(s.id)} style={{background:'none',color:C.muted2,fontSize:20,padding:'0 4px',flexShrink:0}}>×</button>
+      </Card>)}
+    </div>
+    {showAdd&&<Modal title="Новая специализация" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Название * (напр. Терапевт)" value={name} onChange={e=>setName(e.target.value)}/>
+        <input placeholder="Описание (необязательно)" value={desc} onChange={e=>setDesc(e.target.value)}/>
+        <Btn onClick={save} full disabled={saving}>{saving?'Сохранение...':'Добавить'}</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ROOT APP
 // ══════════════════════════════════════════════════════════════════════════════
 const TABS=[
@@ -558,6 +631,7 @@ const TABS=[
   {id:'doctors',  icon:'👨‍⚕️',label:'Врачи'},
   {id:'finances', icon:'💰',label:'Финансы'},
   {id:'tasks',    icon:'✅',label:'Задачи'},
+  {id:'specialties',icon:'🩺',label:'Справочник'},
 ];
 
 function App(){
@@ -568,6 +642,15 @@ function App(){
   const payments=useTable('clinic_payments','created_at',false);
   const emr=useTable('clinic_emr','created_at',false);
   const tasks=useTable('clinic_tasks','created_at',false);
+  const[specialties,setSpecialties]=useState([]);
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const{data}=await db.from('clinic_settings').select('value').eq('key','specialties').single();
+        if(data?.value)setSpecialties(JSON.parse(data.value));
+      }catch{}
+    })();
+  },[]);
   const todayCnt=appts.data.filter(a=>a.date===today()).length;
   const overdueCnt=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<today()).length;
 
@@ -590,7 +673,8 @@ function App(){
         {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
         {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
         {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
-        {tab==='doctors'&&<DoctorsTab doctors={doctors}/>}
+        {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
+        {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties}/>}
         {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
         {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
       </div>
