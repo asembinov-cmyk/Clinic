@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Клиника</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="margin:0;background:#0b0d14;">
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const{createClient}=supabase;
+const{useState,useEffect,useRef,useCallback}=React;
+
+const SUPA_URL='https://zcewrdkwkfudpsybjglb.supabase.co';
+const SUPA_KEY='sb_publishable_QrN5N_msKkdzfDlJHXdJ-Q_pNEejVQm';
+const db=createClient(SUPA_URL,SUPA_KEY);
+
+const C={bg:"#0b0d14",card:"#13151f",card2:"#1a1d2a",border:"#232638",accent:"#4fc3f7",green:"#66bb6a",orange:"#ffa726",red:"#ef5350",purple:"#ab47bc",text:"#e8eaf0",muted:"#5a5f72"};
+const DC=["#4fc3f7","#66bb6a","#ffa726","#ef5350","#ab47bc","#26c6da","#d4e157","#ff7043"];
+const STATUS_C={"Запланирован":C.accent,"Пришёл":C.green,"Отменён":C.red,"Завершён":C.muted};
+const PAY_C={"Оплачено":C.green,"Ожидает":C.orange,"Долг":C.red};
+
+const gcss=`
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0b0d14;color:#e8eaf0;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;}
+input,textarea,select{background:#13151f;border:1.5px solid #232638;color:#e8eaf0;padding:10px 14px;border-radius:12px;font-family:inherit;font-size:14px;width:100%;outline:none;transition:border-color .2s;}
+input:focus,textarea:focus,select:focus{border-color:#4fc3f7;}
+select option{background:#1a1d2a;}
+button{cursor:pointer;font-family:inherit;border:none;}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:#232638;border-radius:4px;}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+`;
+
+const today=()=>new Date().toISOString().split('T')[0];
+const genSlots=(s="08:00",e="20:00")=>{const r=[];let[h,m]=s.split(':').map(Number);const[eh,em]=e.split(':').map(Number);while(h<eh||(h===eh&&m<em)){r.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);m+=30;if(m>=60){h++;m-=60;}}return r;};
+
+const Badge=({text,color})=><span style={{background:color+'22',color,border:`1px solid ${color}44`,borderRadius:20,padding:'2px 10px',fontSize:12,fontWeight:600,whiteSpace:'nowrap'}}>{text}</span>;
+const Spinner=()=><div style={{display:'flex',justifyContent:'center',padding:40}}><div style={{width:32,height:32,border:`3px solid #232638`,borderTopColor:'#4fc3f7',borderRadius:'50%',animation:'spin .8s linear infinite'}}/></div>;
+const Row=({label,value})=><div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{color:C.muted,fontSize:13}}>{label}</span><span style={{fontSize:13,textAlign:'right',maxWidth:'65%'}}>{value}</span></div>;
+const MiniBar=({value,max,color})=>{const p=max?Math.min(100,Math.round(value/max*100)):0;return <div style={{background:C.border,borderRadius:4,height:6}}><div style={{width:`${p}%`,height:'100%',background:color,borderRadius:4}}/></div>;};
+
+function Modal({title,onClose,children}){
+  return <div style={{position:'fixed',inset:0,background:'#000c',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{background:C.card2,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',border:`1px solid ${C.border}`,borderBottom:'none',animation:'slideUp .22s ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <span style={{fontFamily:'Syne',fontWeight:700,fontSize:18}}>{title}</span>
+        <button onClick={onClose} style={{background:C.border,color:C.muted,borderRadius:'50%',width:32,height:32,fontSize:20,lineHeight:'32px',textAlign:'center'}}>×</button>
+      </div>
+      {children}
+    </div>
+  </div>;
+}
+
+function Btn({children,onClick,color=C.accent,outline=false,small=false,full=false,disabled=false}){
+  return <button onClick={disabled?undefined:onClick} style={{background:outline?'transparent':color,color:outline?color:'#000',border:outline?`1.5px solid ${color}`:'none',borderRadius:12,padding:small?'7px 14px':'12px 20px',fontWeight:600,fontSize:small?13:14,width:full?'100%':'auto',opacity:disabled?.4:1}}>{children}</button>;
+}
+
+function DoctorAvatar({doctor,size=36}){
+  if(doctor?.photo) return <img src={doctor.photo} alt="" style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',border:`2px solid ${doctor.color||C.accent}`,flexShrink:0}}/>;
+  const ini=doctor?.name?doctor.name.split(' ').map(w=>w[0]).slice(0,2).join(''):'?';
+  return <div style={{width:size,height:size,borderRadius:'50%',background:(doctor?.color||C.accent)+'33',border:`2px solid ${doctor?.color||C.accent}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.35,fontWeight:700,color:doctor?.color||C.accent,flexShrink:0}}>{ini}</div>;
+}
+
+function useTable(table,orderCol='created_at',orderAsc=false){
+  const[data,setData]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const load=useCallback(async()=>{
+    setLoading(true);
+    const{data:rows}=await db.from(table).select('*').order(orderCol,{ascending:orderAsc});
+    setData(rows||[]);setLoading(false);
+  },[table]);
+  useEffect(()=>{load();},[load]);
+  const insert=async row=>{const{data:ins}=await db.from(table).insert(row).select().single();setData(p=>[ins,...p]);return ins;};
+  const update=async(id,ch)=>{await db.from(table).update(ch).eq('id',id);setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));};
+  const remove=async id=>{await db.from(table).delete().eq('id',id);setData(p=>p.filter(r=>r.id!==id));};
+  return{data,loading,load,insert,update,remove};
+}
+
+const EMR_TMPL=[
+  {id:'general',label:'Общий осмотр',fields:[{k:'complaints',l:'Жалобы',ta:true},{k:'anamnesis',l:'Анамнез',ta:true},{k:'diagnosis',l:'Диагноз'},{k:'icd',l:'МКБ-10'},{k:'prescription',l:'Назначения',ta:true},{k:'nextvisit',l:'Следующий визит'}]},
+  {id:'dental',label:'Стоматология',fields:[{k:'complaints',l:'Жалобы',ta:true},{k:'teeth',l:'Зуб'},{k:'diagnosis',l:'Диагноз'},{k:'work',l:'Манипуляции',ta:true},{k:'prescription',l:'Рекомендации',ta:true},{k:'nextvisit',l:'Следующий визит'}]},
+  {id:'cosmo',label:'Косметология',fields:[{k:'complaints',l:'Пожелания',ta:true},{k:'procedure',l:'Процедура'},{k:'products',l:'Препараты'},{k:'result',l:'Результат',ta:true},{k:'nextvisit',l:'Следующий сеанс'}]},
+];
+
+function DashboardTab({patients,appts,payments,doctors,tasks}){
+  const td=today();
+  const todayApps=appts.data.filter(a=>a.date===td);
+  const revenue=payments.data.filter(p=>p.status==='Оплачено').reduce((s,p)=>s+Number(p.amount),0);
+  const pend=payments.data.filter(p=>p.status==='Ожидает').reduce((s,p)=>s+Number(p.amount),0);
+  const debt=payments.data.filter(p=>p.status==='Долг').reduce((s,p)=>s+Number(p.amount),0);
+  const last7=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);const ds=d.toISOString().split('T')[0];return{ds,cnt:appts.data.filter(a=>a.date===ds).length,label:d.toLocaleDateString('ru-RU',{weekday:'short'})};});
+  const maxCnt=Math.max(...last7.map(d=>d.cnt),1);
+  const overdue=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<td);
+  const funnel=[{l:'Записей',v:appts.data.length,c:C.accent},{l:'Пришли',v:appts.data.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length,c:C.green},{l:'Завершили',v:appts.data.filter(a=>a.status==='Завершён').length,c:C.purple},{l:'Оплачено',v:payments.data.filter(p=>p.status==='Оплачено').length,c:C.orange}];
+
+  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+    {overdue.length>0&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:14,padding:'10px 14px'}}><div style={{color:C.red,fontWeight:600,fontSize:13,marginBottom:4}}>⚠ Просроченные задачи ({overdue.length})</div>{overdue.map(t=><div key={t.id} style={{fontSize:12,color:C.red}}>{t.title}</div>)}</div>}
+    <div style={{background:`linear-gradient(135deg,${C.accent}18,${C.purple}12)`,border:`1px solid ${C.accent}33`,borderRadius:18,padding:'16px 18px'}}>
+      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,marginBottom:10}}>Сегодня</div>
+      <div style={{display:'flex',gap:8}}>
+        {[{l:'Приёмов',v:todayApps.length,c:C.accent},{l:'Пришли',v:todayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length,c:C.green},{l:'Ждут',v:todayApps.filter(a=>a.status==='Запланирован').length,c:C.orange},{l:'Отмена',v:todayApps.filter(a=>a.status==='Отменён').length,c:C.red}].map(({l,v,c})=>(
+          <div key={l} style={{flex:1,background:C.bg+'99',borderRadius:12,padding:'8px 4px',textAlign:'center'}}><div style={{fontFamily:'Syne',fontWeight:800,fontSize:18,color:c}}>{v}</div><div style={{color:C.muted,fontSize:9}}>{l}</div></div>
+        ))}
+      </div>
+    </div>
+    <div style={{display:'flex',gap:8}}>
+      {[{l:'Выручка',v:revenue,c:C.green},{l:'Ожидает',v:pend,c:C.orange},{l:'Долги',v:debt,c:C.red}].map(({l,v,c})=>(
+        <div key={l} style={{flex:1,background:C.card,border:`1px solid ${c}33`,borderRadius:14,padding:'12px 8px',textAlign:'center'}}><div style={{color:c,fontSize:10,marginBottom:4}}>{l}</div><div style={{fontFamily:'Syne',fontWeight:700,fontSize:12,color:c}}>{v.toLocaleString()} ₽</div></div>
+      ))}
+    </div>
+    <div>
+      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:12,color:C.muted,letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>Приёмы / 7 дней</div>
+      <div style={{background:C.card,borderRadius:16,padding:'14px 10px'}}><div style={{display:'flex',gap:4,alignItems:'flex-end',height:70}}>{last7.map(d=><div key={d.ds} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}><div style={{width:'100%',background:d.ds===td?C.accent:C.accent+'55',borderRadius:'4px 4px 0 0',height:`${Math.round(d.cnt/maxCnt*56)+4}px`,minHeight:4}}/><div style={{fontSize:9,color:C.muted,textTransform:'capitalize'}}>{d.label}</div></div>)}</div></div>
+    </div>
+    <div>
+      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:12,color:C.muted,letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>Воронка</div>
+      <div style={{background:C.card,borderRadius:16,padding:14,display:'flex',flexDirection:'column',gap:10}}>{funnel.map(f=><div key={f.l}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:13}}>{f.l}</span><span style={{fontFamily:'Syne',fontWeight:700,color:f.c,fontSize:14}}>{f.v}</span></div><MiniBar value={f.v} max={funnel[0].v||1} color={f.c}/></div>)}</div>
+    </div>
+    <div style={{display:'flex',gap:8}}>
+      {[{l:'Пациентов',v:patients.data.length,c:C.accent},{l:'Врачей',v:doctors.data.length,c:C.green},{l:'Задач',v:tasks.data.filter(t=>!t.done).length,c:C.orange}].map(({l,v,c})=>(
+        <div key={l} style={{flex:1,background:C.card,borderRadius:14,padding:'12px 8px',textAlign:'center'}}><div style={{color:C.muted,fontSize:10}}>{l}</div><div style={{fontFamily:'Syne',fontWeight:800,fontSize:22,color:c,marginTop:4}}>{v}</div></div>
+      ))}
+    </div>
+  </div>;
+}
+
+function ReceptionTab({appts,patients,doctors}){
+  const[selDate,setSelDate]=useState(today());
+  const[showAdd,setShowAdd]=useState(false);
+  const[selApp,setSelApp]=useState(null);
+  const[saving,setSaving]=useState(false);
+  const[form,setForm]=useState({patient_name:'',doctor_id:'',time:'09:00',service:'',status:'Запланирован',date:today()});
+  const nav=d=>{const dt=new Date(selDate);dt.setDate(dt.getDate()+d);setSelDate(dt.toISOString().split('T')[0]);};
+  const dayApps=[...appts.data.filter(a=>a.date===selDate)].sort((a,b)=>a.time.localeCompare(b.time));
+  const stats={total:dayApps.length,came:dayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length,waiting:dayApps.filter(a=>a.status==='Запланирован').length,cancelled:dayApps.filter(a=>a.status==='Отменён').length};
+  const addApp=async()=>{if(!form.patient_name.trim())return;setSaving(true);const doc=doctors.data.find(d=>String(d.id)===String(form.doctor_id));const pt=patients.data.find(p=>p.name.toLowerCase()===form.patient_name.toLowerCase());await appts.insert({...form,doctor_id:doc?.id||null,doctor_name:doc?.name||'',patient_id:pt?.id||null});setShowAdd(false);setSaving(false);};
+  const updStatus=async(id,status)=>{await appts.update(id,{status});if(selApp?.id===id)setSelApp({...selApp,status});};
+  return <div>
+    <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+      <button onClick={()=>nav(-1)} style={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10,width:36,height:36,fontSize:18}}>‹</button>
+      <input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} style={{flex:1,textAlign:'center'}}/>
+      <button onClick={()=>nav(1)} style={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10,width:36,height:36,fontSize:18}}>›</button>
+      <button onClick={()=>{setForm({patient_name:'',doctor_id:'',time:'09:00',service:'',status:'Запланирован',date:selDate});setShowAdd(true);}} style={{background:C.accent,color:'#000',borderRadius:10,width:36,height:36,fontSize:20,fontWeight:700,flexShrink:0}}>+</button>
+    </div>
+    <div style={{display:'flex',gap:8,marginBottom:14}}>
+      {[{l:'Всего',v:stats.total,c:C.accent},{l:'Пришли',v:stats.came,c:C.green},{l:'Ждут',v:stats.waiting,c:C.orange},{l:'Отмена',v:stats.cancelled,c:C.red}].map(({l,v,c})=>(
+        <div key={l} style={{flex:1,background:C.card,border:`1px solid ${c}22`,borderRadius:12,padding:'8px 6px',textAlign:'center'}}><div style={{fontFamily:'Syne',fontWeight:800,fontSize:18,color:c}}>{v}</div><div style={{color:C.muted,fontSize:10}}>{l}</div></div>
+      ))}
+    </div>
+    {appts.loading?<Spinner/>:dayApps.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Записей нет</div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {dayApps.map(a=>{const doc=doctors.data.find(d=>d.id===a.doctor_id);return <div key={a.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${STATUS_C[a.status]||C.muted}`,borderRadius:16,padding:'12px 14px'}}>
+          <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+            {doc&&<DoctorAvatar doctor={doc} size={36}/>}
+            <div style={{flex:1}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'Syne',fontWeight:700}}>{a.time} {a.patient_name}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
+            <div style={{color:C.muted,fontSize:12,marginTop:3}}>{a.doctor_name||'—'}{a.service?` · ${a.service}`:''}</div></div>
+          </div>
+          <div style={{display:'flex',gap:6,marginTop:10,flexWrap:'wrap'}}>
+            {a.status==='Запланирован'&&<Btn small color={C.green} onClick={()=>updStatus(a.id,'Пришёл')}>✓ Пришёл</Btn>}
+            {a.status==='Пришёл'&&<Btn small color={C.purple} onClick={()=>updStatus(a.id,'Завершён')}>✓ Завершён</Btn>}
+            {a.status==='Запланирован'&&<Btn small color={C.red} outline onClick={()=>updStatus(a.id,'Отменён')}>Отменить</Btn>}
+            <Btn small outline onClick={()=>setSelApp(a)}>Детали</Btn>
+          </div>
+        </div>;})}
+      </div>
+    )}
+    {showAdd&&<Modal title="Быстрая запись" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Пациент *" value={form.patient_name} onChange={e=>setForm({...form,patient_name:e.target.value})} list="rpl"/>
+        <datalist id="rpl">{patients.data.map(p=><option key={p.id} value={p.name}/>)}</datalist>
+        <select value={form.doctor_id} onChange={e=>setForm({...form,doctor_id:e.target.value})}><option value="">— Врач —</option>{doctors.data.map(d=><option key={d.id} value={d.id}>{d.name}{d.specialty?` (${d.specialty})`:''}</option>)}</select>
+        <div style={{display:'flex',gap:10}}>
+          <input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/>
+          <select value={form.time} onChange={e=>setForm({...form,time:e.target.value})}>{genSlots('06:00','22:30').map(t=><option key={t}>{t}</option>)}</select>
+        </div>
+        <input placeholder="Услуга" value={form.service} onChange={e=>setForm({...form,service:e.target.value})}/>
+        <Btn onClick={addApp} full disabled={saving}>{saving?'Сохранение...':'Записать'}</Btn>
+      </div>
+    </Modal>}
+    {selApp&&<Modal title="Приём" onClose={()=>setSelApp(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{background:C.bg,borderRadius:12,padding:14}}><Row label="Пациент" value={selApp.patient_name}/><Row label="Услуга" value={selApp.service||'—'}/><Row label="Время" value={`${selApp.date} ${selApp.time}`}/><Row label="Статус" value={<Badge text={selApp.status} color={STATUS_C[selApp.status]||C.muted}/>}/></div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{Object.keys(STATUS_C).map(s=><Btn key={s} small onClick={()=>updStatus(selApp.id,s)} color={STATUS_C[s]} outline={selApp.status!==s}>{s}</Btn>)}</div>
+        <Btn onClick={async()=>{await appts.remove(selApp.id);setSelApp(null);}} color={C.red} outline full>Удалить</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+function PatientsTab({patients,appts,emr}){
+  const[search,setSearch]=useState('');const[showAdd,setShowAdd]=useState(false);const[sel,setSel]=useState(null);const[ptab,setPtab]=useState('info');
+  const[form,setForm]=useState({name:'',phone:'',dob:'',gender:'',address:'',allergy:'',notes:''});
+  const[emrView,setEmrView]=useState('list');const[emrTmpl,setEmrTmpl]=useState(EMR_TMPL[0]);const[emrFields,setEmrFields]=useState({});const[selRec,setSelRec]=useState(null);const[saving,setSaving]=useState(false);
+  const filtered=patients.data.filter(p=>p.name.toLowerCase().includes(search.toLowerCase())||(p.phone||'').includes(search));
+  const patApps=sel?[...appts.data.filter(a=>a.patient_id===sel.id)].sort((a,b)=>b.date.localeCompare(a.date)):[];
+  const patEmr=sel?[...emr.data.filter(r=>r.patient_id===sel.id)].sort((a,b)=>b.date.localeCompare(a.date)):[];
+  const addPat=async()=>{if(!form.name.trim())return;setSaving(true);await patients.insert(form);setForm({name:'',phone:'',dob:'',gender:'',address:'',allergy:'',notes:''});setShowAdd(false);setSaving(false);};
+  const saveEMR=async()=>{if(!sel)return;setSaving(true);await emr.insert({patient_id:sel.id,patient_name:sel.name,template_id:emrTmpl.id,template_label:emrTmpl.label,date:today(),doctor:'',fields:emrFields});setEmrFields({});setEmrView('list');setSaving(false);};
+  return <div>
+    <div style={{display:'flex',gap:10,marginBottom:16}}>
+      <input placeholder="🔍 Поиск..." value={search} onChange={e=>setSearch(e.target.value)}/>
+      <button onClick={()=>setShowAdd(true)} style={{background:C.accent,color:'#000',borderRadius:12,padding:'10px 16px',fontWeight:700,fontSize:18,flexShrink:0}}>+</button>
+    </div>
+    {patients.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Пациентов нет</div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(p=>{const cnt=appts.data.filter(a=>a.patient_id===p.id).length;return<div key={p.id} onClick={()=>{setSel(p);setPtab('info');setEmrView('list');}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:'14px 16px',cursor:'pointer'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontFamily:'Syne',fontWeight:600,fontSize:16}}>{p.name}</div>{cnt>0&&<Badge text={`${cnt} прим.`} color={C.accent}/>}</div>
+          <div style={{color:C.muted,fontSize:13,marginTop:4}}>{p.phone}{p.dob?` · ${p.dob}`:''}</div>
+          {p.allergy&&<div style={{color:C.red,fontSize:11,marginTop:4}}>⚠ {p.allergy}</div>}
+        </div>;})}
+      </div>
+    )}
+    {showAdd&&<Modal title="Новый пациент" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="ФИО *" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+        <input placeholder="Телефон" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
+        <div style={{display:'flex',gap:10}}><input type="date" value={form.dob} onChange={e=>setForm({...form,dob:e.target.value})} style={{flex:1}}/><select value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})} style={{flex:1}}><option value="">Пол</option><option>Мужской</option><option>Женский</option></select></div>
+        <input placeholder="Адрес" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
+        <input placeholder="⚠ Аллергии" value={form.allergy} onChange={e=>setForm({...form,allergy:e.target.value})}/>
+        <textarea placeholder="Заметки" rows={2} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} style={{resize:'none'}}/>
+        <Btn onClick={addPat} full disabled={saving}>{saving?'Сохранение...':'Добавить'}</Btn>
+      </div>
+    </Modal>}
+    {sel&&<Modal title={sel.name} onClose={()=>setSel(null)}>
+      <div style={{display:'flex',gap:0,marginBottom:16,background:C.bg,borderRadius:12,padding:3}}>
+        {[{id:'info',label:'Инфо'},{id:'emr',label:`ЭМК (${patEmr.length})`},{id:'history',label:`Приёмы (${patApps.length})`}].map(t=>(
+          <div key={t.id} onClick={()=>setPtab(t.id)} style={{flex:1,textAlign:'center',padding:'8px 4px',borderRadius:10,background:ptab===t.id?C.card2:'transparent',color:ptab===t.id?C.accent:C.muted,fontSize:12,fontWeight:600,cursor:'pointer'}}>{t.label}</div>
+        ))}
+      </div>
+      {ptab==='info'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{background:C.bg,borderRadius:12,padding:14}}><Row label="Телефон" value={sel.phone||'—'}/><Row label="Дата рождения" value={sel.dob||'—'}/><Row label="Пол" value={sel.gender||'—'}/>{sel.allergy&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:10,padding:'8px 12px',marginTop:8,color:C.red,fontSize:13}}>⚠ {sel.allergy}</div>}</div>
+        <Btn onClick={async()=>{await patients.remove(sel.id);setSel(null);}} color={C.red} outline full>Удалить пациента</Btn>
+      </div>}
+      {ptab==='emr'&&<div>
+        {emrView==='list'&&<><div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:12,paddingBottom:4}}>{EMR_TMPL.map(t=><div key={t.id} onClick={()=>{setEmrTmpl(t);setEmrFields({});setEmrView('new');}} style={{background:C.accent+'22',border:`1.5px solid ${C.accent}44`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:C.accent,fontWeight:600}}>+ {t.label}</div>)}</div>
+        {patEmr.length===0?<div style={{textAlign:'center',color:C.muted,padding:20}}>Записей нет</div>:patEmr.map(r=><div key={r.id} onClick={()=>{setSelRec(r);setEmrView('detail');}} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:14,padding:'12px 14px',cursor:'pointer',marginBottom:8}}><div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'Syne',fontWeight:600}}>{r.template_label}</span><span style={{fontSize:12,color:C.muted}}>{r.date}</span></div>{r.fields?.diagnosis&&<div style={{color:C.accent,fontSize:12,marginTop:4}}>Диагноз: {r.fields.diagnosis}</div>}</div>)}</>}
+        {emrView==='new'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>{EMR_TMPL.map(t=><div key={t.id} onClick={()=>{setEmrTmpl(t);setEmrFields({});}} style={{background:emrTmpl.id===t.id?C.accent+'22':C.bg,border:`1.5px solid ${emrTmpl.id===t.id?C.accent:C.border}`,borderRadius:20,padding:'5px 12px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:emrTmpl.id===t.id?C.accent:C.muted,fontWeight:600}}>{t.label}</div>)}</div>
+          {emrTmpl.fields.map(f=><div key={f.k}><div style={{fontSize:12,color:C.muted,marginBottom:4}}>{f.l}</div>{f.ta?<textarea rows={2} value={emrFields[f.k]||''} onChange={e=>setEmrFields({...emrFields,[f.k]:e.target.value})} style={{resize:'none'}}/>:<input value={emrFields[f.k]||''} onChange={e=>setEmrFields({...emrFields,[f.k]:e.target.value})}/>}</div>)}
+          <div style={{display:'flex',gap:10}}><Btn full onClick={saveEMR} disabled={saving}>{saving?'Сохранение...':'Сохранить'}</Btn><Btn outline color={C.muted} onClick={()=>setEmrView('list')}>Отмена</Btn></div>
+        </div>}
+        {emrView==='detail'&&selRec&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{background:C.bg,borderRadius:12,padding:14}}><Row label="Дата" value={selRec.date}/><Row label="Шаблон" value={selRec.template_label}/></div>
+          {EMR_TMPL.find(t=>t.id===selRec.template_id)?.fields.map(f=>selRec.fields?.[f.k]?<div key={f.k}><div style={{fontSize:11,color:C.muted,marginBottom:3}}>{f.l}</div><div style={{background:C.bg,borderRadius:10,padding:'8px 12px',fontSize:13}}>{selRec.fields[f.k]}</div></div>:null)}
+          <div style={{display:'flex',gap:10}}><Btn outline full color={C.muted} onClick={()=>{setSelRec(null);setEmrView('list');}}>← Назад</Btn><Btn outline color={C.red} onClick={async()=>{await emr.remove(selRec.id);setSelRec(null);setEmrView('list');}}>Удалить</Btn></div>
+        </div>}
+      </div>}
+      {ptab==='history'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{patApps.length===0?<div style={{textAlign:'center',color:C.muted,padding:20}}>Нет приёмов</div>:patApps.map(a=><div key={a.id} style={{background:C.bg,borderRadius:12,padding:'10px 14px',borderLeft:`3px solid ${STATUS_C[a.status]||C.muted}`}}><div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'Syne',fontWeight:600,fontSize:13}}>{a.date} {a.time}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div><div style={{color:C.muted,fontSize:12,marginTop:3}}>{a.doctor_name||'—'}{a.service?` · ${a.service}`:''}</div></div>)}</div>}
+    </Modal>}
+  </div>;
+}
+
+function DoctorsTab({doctors}){
+  const[showAdd,setShowAdd]=useState(false);const[sel,setSel]=useState(null);const[editing,setEditing]=useState(false);
+  const ef={name:'',specialty:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
+  const[form,setForm]=useState(ef);const[saving,setSaving]=useState(false);const fileRef=useRef();const slots=genSlots('06:00','22:30');
+  const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);};
+  const saveDoc=async()=>{if(!form.name.trim())return;setSaving(true);if(editing){await doctors.update(sel.id,form);setSel({...sel,...form});setEditing(false);}else{await doctors.insert(form);setShowAdd(false);}setSaving(false);};
+  const FormBody=()=><div style={{display:'flex',flexDirection:'column',gap:12}}>
+    <div style={{display:'flex',gap:14,alignItems:'center'}}>
+      <div onClick={()=>fileRef.current.click()} style={{cursor:'pointer',flexShrink:0}}>{form.photo?<img src={form.photo} style={{width:64,height:64,borderRadius:'50%',objectFit:'cover',border:`3px solid ${form.color}`}}/>:<div style={{width:64,height:64,borderRadius:'50%',background:form.color+'22',border:`2px dashed ${form.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:form.color}}>📷</div>}</div>
+      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handlePhoto}/>
+      <input placeholder="ФИО врача *" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+    </div>
+    <input placeholder="Специальность" value={form.specialty} onChange={e=>setForm({...form,specialty:e.target.value})}/>
+    <input placeholder="Телефон" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
+    <textarea placeholder="Описание..." rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} style={{resize:'none'}}/>
+    <div style={{background:C.bg,borderRadius:12,padding:'12px 14px'}}><div style={{fontSize:12,color:C.muted,marginBottom:8}}>Часы работы</div><div style={{display:'flex',gap:10,alignItems:'center'}}><select value={form.work_start} onChange={e=>setForm({...form,work_start:e.target.value})} style={{flex:1}}>{slots.map(s=><option key={s}>{s}</option>)}</select><span style={{color:C.muted}}>—</span><select value={form.work_end} onChange={e=>setForm({...form,work_end:e.target.value})} style={{flex:1}}>{slots.map(s=><option key={s}>{s}</option>)}</select></div></div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{DC.map(col=><div key={col} onClick={()=>setForm({...form,color:col})} style={{width:28,height:28,borderRadius:'50%',background:col,cursor:'pointer',border:form.color===col?'3px solid #fff':'3px solid transparent'}}/>)}</div>
+    <Btn onClick={saveDoc} full disabled={saving}>{saving?'Сохранение...':(editing?'Сохранить':'Добавить врача')}</Btn>
+  </div>;
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><span style={{fontFamily:'Syne',fontWeight:700,fontSize:16}}>Врачи ({doctors.data.length})</span><Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn></div>
+    {doctors.loading?<Spinner/>:doctors.data.length===0?<div style={{textAlign:'center',color:C.muted,padding:50}}><div style={{fontSize:40,marginBottom:12}}>👨‍⚕️</div>Добавьте первого врача</div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {doctors.data.map(d=><div key={d.id} onClick={()=>setSel(d)} style={{background:C.card,border:`1.5px solid ${d.active?d.color+'44':C.border}`,borderRadius:16,padding:'14px 16px',cursor:'pointer',opacity:d.active?1:.55}}>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}><DoctorAvatar doctor={d} size={44}/><div style={{flex:1,minWidth:0}}><div style={{fontFamily:'Syne',fontWeight:700,fontSize:15}}>{d.name}</div>{d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}<div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div></div>
+          <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'22':C.muted+'22',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600}}>{d.active?'Работает':'Выходной'}</div></div>
+        </div>)}
+      </div>
+    )}
+    {showAdd&&<Modal title="Новый врач" onClose={()=>setShowAdd(false)}><FormBody/></Modal>}
+    {sel&&!editing&&<Modal title="Карточка врача" onClose={()=>setSel(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}><div style={{display:'flex',gap:14,alignItems:'center'}}><DoctorAvatar doctor={sel} size={60}/><div><div style={{fontFamily:'Syne',fontWeight:700,fontSize:18}}>{sel.name}</div>{sel.specialty&&<div style={{color:sel.color,fontSize:14}}>{sel.specialty}</div>}</div></div>
+      <div style={{background:C.bg,borderRadius:12,padding:14}}><Row label="Телефон" value={sel.phone||'—'}/><Row label="Часы" value={`${sel.work_start}–${sel.work_end}`}/>{sel.description&&<div style={{color:C.muted,fontSize:13,marginTop:8,lineHeight:1.5}}>{sel.description}</div>}</div>
+      <div style={{display:'flex',gap:10}}><Btn full outline onClick={()=>{setForm({name:sel.name,specialty:sel.specialty||'',phone:sel.phone||'',description:sel.description||'',photo:sel.photo||'',color:sel.color||DC[0],work_start:sel.work_start||'08:00',work_end:sel.work_end||'18:00',active:sel.active});setEditing(true);}}>Редактировать</Btn><Btn outline color={C.red} onClick={async()=>{await doctors.remove(sel.id);setSel(null);}}>Удалить</Btn></div></div>
+    </Modal>}
+    {editing&&<Modal title="Редактировать" onClose={()=>setEditing(false)}><FormBody/></Modal>}
+  </div>;
+}
+
+function FinancesTab({payments,patients,doctors}){
+  const[showAdd,setShowAdd]=useState(false);const[filter,setFilter]=useState('all');
+  const[form,setForm]=useState({patient_name:'',doctor_name:'',service:'',amount:'',status:'Ожидает',date:today()});const[saving,setSaving]=useState(false);
+  const total=payments.data.reduce((s,p)=>s+(p.status==='Оплачено'?Number(p.amount):0),0);
+  const pend=payments.data.reduce((s,p)=>s+(p.status==='Ожидает'?Number(p.amount):0),0);
+  const debt=payments.data.reduce((s,p)=>s+(p.status==='Долг'?Number(p.amount):0),0);
+  const shown=filter==='all'?payments.data:payments.data.filter(p=>p.status===filter);
+  const cycle={Ожидает:'Оплачено',Оплачено:'Долг',Долг:'Ожидает'};
+  const add=async()=>{if(!form.patient_name.trim()||!form.amount)return;setSaving(true);await payments.insert(form);setForm({patient_name:'',doctor_name:'',service:'',amount:'',status:'Ожидает',date:today()});setShowAdd(false);setSaving(false);};
+  return <div>
+    <div style={{display:'flex',gap:8,marginBottom:14}}>
+      {[{l:'Оплачено',v:total,c:C.green},{l:'Ожидает',v:pend,c:C.orange},{l:'Долг',v:debt,c:C.red}].map(({l,v,c})=>(
+        <div key={l} style={{flex:1,background:C.card,border:`1px solid ${c}33`,borderRadius:14,padding:'12px 8px',textAlign:'center'}}><div style={{color:c,fontSize:10,marginBottom:4}}>{l}</div><div style={{fontFamily:'Syne',fontWeight:700,fontSize:14,color:c}}>{v.toLocaleString()} ₽</div></div>
+      ))}
+    </div>
+    <div style={{display:'flex',gap:8,marginBottom:12,overflowX:'auto'}}>
+      {['all','Оплачено','Ожидает','Долг'].map(f=><div key={f} onClick={()=>setFilter(f)} style={{background:filter===f?C.accent+'22':C.card,border:`1.5px solid ${filter===f?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:filter===f?C.accent:C.muted,fontWeight:600,flexShrink:0}}>{f==='all'?'Все':f}</div>)}
+      <div style={{marginLeft:'auto',flexShrink:0}}><Btn small onClick={()=>setShowAdd(true)}>+ Платёж</Btn></div>
+    </div>
+    {payments.loading?<Spinner/>:shown.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Нет платежей</div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {shown.map(p=><div key={p.id} onClick={()=>payments.update(p.id,{status:cycle[p.status]})} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:'14px 16px',cursor:'pointer'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'Syne',fontWeight:600}}>{p.patient_name}</span><span style={{fontFamily:'Syne',fontWeight:700,color:PAY_C[p.status]}}>{Number(p.amount).toLocaleString()} ₽</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:6,gap:8}}><span style={{color:C.muted,fontSize:13}}>{p.doctor_name||p.service||p.date}</span><Badge text={p.status} color={PAY_C[p.status]}/></div>
+        </div>)}
+      </div>
+    )}
+    {showAdd&&<Modal title="Новый платёж" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Пациент *" value={form.patient_name} onChange={e=>setForm({...form,patient_name:e.target.value})} list="fp2"/>
+        <datalist id="fp2">{patients.data.map(p=><option key={p.id} value={p.name}/>)}</datalist>
+        <select value={form.doctor_name} onChange={e=>setForm({...form,doctor_name:e.target.value})}><option value="">— Врач —</option>{doctors.data.map(d=><option key={d.id} value={d.name}>{d.name}</option>)}</select>
+        <input placeholder="Сумма ₽ *" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/>
+        <input placeholder="Услуга" value={form.service} onChange={e=>setForm({...form,service:e.target.value})}/>
+        <input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/>
+        <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{Object.keys(PAY_C).map(s=><option key={s}>{s}</option>)}</select>
+        <Btn onClick={add} full disabled={saving}>{saving?'Сохранение...':'Добавить'}</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+function TasksTab({tasks,doctors}){
+  const[showAdd,setShowAdd]=useState(false);const[filter,setFilter]=useState('active');
+  const[form,setForm]=useState({title:'',assignee:'',priority:'Средний',due_date:'',notes:''});const[saving,setSaving]=useState(false);
+  const PRIO_C={'Высокий':C.red,'Средний':C.orange,'Низкий':C.green};
+  const shown=tasks.data.filter(t=>filter==='active'?!t.done:t.done);
+  const overdue=t=>!t.done&&t.due_date&&t.due_date<today();
+  const save=async()=>{if(!form.title.trim())return;setSaving(true);await tasks.insert({...form,done:false,created_at:today()});setForm({title:'',assignee:'',priority:'Средний',due_date:'',notes:''});setShowAdd(false);setSaving(false);};
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontFamily:'Syne',fontWeight:700,fontSize:16}}>Задачи</span><Btn small onClick={()=>setShowAdd(true)}>+ Задача</Btn></div>
+    <div style={{display:'flex',gap:8,marginBottom:14}}>
+      {[{id:'active',l:`Активные (${tasks.data.filter(t=>!t.done).length})`},{id:'done',l:`Выполнено (${tasks.data.filter(t=>t.done).length})`}].map(f=>(
+        <div key={f.id} onClick={()=>setFilter(f.id)} style={{background:filter===f.id?C.accent+'22':C.card,border:`1.5px solid ${filter===f.id?C.accent:C.border}`,borderRadius:20,padding:'6px 14px',cursor:'pointer',fontSize:12,color:filter===f.id?C.accent:C.muted,fontWeight:600}}>{f.l}</div>
+      ))}
+    </div>
+    {tasks.loading?<Spinner/>:shown.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Задач нет</div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {shown.map(t=><div key={t.id} style={{background:C.card,border:`1px solid ${overdue(t)?C.red:C.border}`,borderRadius:14,padding:'12px 14px'}}>
+          <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+            <div onClick={()=>tasks.update(t.id,{done:!t.done})} style={{width:22,height:22,borderRadius:6,border:`2px solid ${t.done?C.green:C.border}`,background:t.done?C.green+'33':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:1,color:C.green,fontSize:14}}>{t.done?'✓':''}</div>
+            <div style={{flex:1}}><div style={{fontWeight:600,textDecoration:t.done?'line-through':'none',color:t.done?C.muted:C.text}}>{t.title}</div>
+            <div style={{display:'flex',gap:8,marginTop:4,flexWrap:'wrap',alignItems:'center'}}>{t.assignee&&<span style={{fontSize:11,color:C.muted}}>{t.assignee}</span>}<Badge text={t.priority} color={PRIO_C[t.priority]||C.muted}/>{t.due_date&&<span style={{fontSize:11,color:overdue(t)?C.red:C.muted}}>{overdue(t)?'⚠ ':''}{t.due_date}</span>}</div></div>
+            <button onClick={()=>tasks.remove(t.id)} style={{background:'none',color:C.muted,fontSize:18,padding:0,flexShrink:0}}>×</button>
+          </div>
+        </div>)}
+      </div>
+    )}
+    {showAdd&&<Modal title="Новая задача" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Задача *" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
+        <input placeholder="Ответственный" value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value})} list="dnames2"/>
+        <datalist id="dnames2">{doctors.data.map(d=><option key={d.id} value={d.name}/>)}</datalist>
+        <select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Высокий</option><option>Средний</option><option>Низкий</option></select>
+        <input type="date" value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/>
+        <Btn onClick={save} full disabled={saving}>{saving?'Сохранение...':'Добавить'}</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+const TABS=[{id:'dashboard',icon:'📊',label:'Главная'},{id:'reception',icon:'🏥',label:'Ресепшн'},{id:'patients',icon:'👤',label:'Пациенты'},{id:'doctors',icon:'👨‍⚕️',label:'Врачи'},{id:'finances',icon:'💰',label:'Финансы'},{id:'tasks',icon:'✅',label:'Задачи'}];
+
+function App(){
+  const[tab,setTab]=useState('dashboard');const[menuOpen,setMenuOpen]=useState(false);
+  const doctors=useTable('clinic_doctors','created_at',true);
+  const patients=useTable('clinic_patients','created_at',false);
+  const appts=useTable('clinic_appointments','created_at',false);
+  const payments=useTable('clinic_payments','created_at',false);
+  const emr=useTable('clinic_emr','created_at',false);
+  const tasks=useTable('clinic_tasks','created_at',false);
+  const todayCnt=appts.data.filter(a=>a.date===today()).length;
+  const overdueCnt=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<today()).length;
+  return <>
+    <style>{gcss}</style>
+    <div style={{minHeight:'100vh',background:C.bg,paddingBottom:72}}>
+      <div style={{padding:'14px 16px 12px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,display:'flex',alignItems:'center',gap:10}}>
+        <div style={{flex:1}}><span style={{fontFamily:'Syne',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {overdueCnt>0&&<div style={{background:C.red+'22',border:`1px solid ${C.red}44`,borderRadius:20,padding:'2px 8px',fontSize:11,color:C.red}}>⚠{overdueCnt}</div>}
+          <div style={{background:C.accent+'22',border:`1px solid ${C.accent}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.accent}}>{todayCnt} сегодня</div>
+          <button onClick={()=>setMenuOpen(true)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,fontSize:18,color:C.muted}}>☰</button>
+        </div>
+      </div>
+      <div style={{padding:16}}>
+        {tab==='dashboard'&&<DashboardTab patients={patients} appts={appts} payments={payments} doctors={doctors} tasks={tasks}/>}
+        {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
+        {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
+        {tab==='doctors'&&<DoctorsTab doctors={doctors}/>}
+        {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
+        {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
+      </div>
+    </div>
+    <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,display:'flex',padding:'6px 0 8px',zIndex:50}}>
+      {TABS.slice(0,5).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent'}}><span style={{fontSize:17}}>{t.icon}</span><span style={{fontSize:9,color:tab===t.id?C.accent:C.muted,fontWeight:tab===t.id?600:400}}>{t.label}</span></button>)}
+      <button onClick={()=>setMenuOpen(true)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:'2px solid transparent'}}><span style={{fontSize:17}}>⋯</span><span style={{fontSize:9,color:C.muted}}>Ещё</span></button>
+    </div>
+    {menuOpen&&<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'flex-end'}} onClick={()=>setMenuOpen(false)}>
+      <div onClick={e=>e.stopPropagation()} style={{background:C.card2,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,margin:'0 auto',border:`1px solid ${C.border}`,borderBottom:'none',animation:'slideUp .22s ease'}}>
+        <div style={{fontFamily:'Syne',fontWeight:700,fontSize:16,marginBottom:16}}>Все разделы</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+          {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'22':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4}}><span style={{fontSize:22}}>{t.icon}</span><span style={{fontSize:11,color:tab===t.id?C.accent:C.text,fontWeight:600,textAlign:'center'}}>{t.label}</span></button>)}
+        </div>
+      </div>
+    </div>}
+  </>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
