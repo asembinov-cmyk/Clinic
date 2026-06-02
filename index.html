@@ -119,11 +119,17 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
 
     <div style={{background:`linear-gradient(135deg,${C.accent},${C.purple})`,borderRadius:18,padding:'18px 18px'}}>
       <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:'#fff',marginBottom:12}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
-      <div style={{display:'flex',gap:10}}>
-        {[{l:'Приёмов',v:todayApps.length},{l:'Пришли',v:todayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length},{l:'Ждут',v:todayApps.filter(a=>a.status==='Запланирован').length},{l:'Отмена',v:todayApps.filter(a=>a.status==='Отменён').length}].map(({l,v})=>(
-          <div key={l} style={{flex:1,background:'rgba(255,255,255,.25)',borderRadius:14,padding:'12px 6px',textAlign:'center',minWidth:0}}>
-            <div style={{fontFamily:'Syne',fontWeight:800,fontSize:24,color:'#fff',lineHeight:1}}>{v}</div>
-            <div style={{color:'rgba(255,255,255,.85)',fontSize:10,marginTop:5,lineHeight:1.2}}>{l}</div>
+      <div style={{display:'flex',gap:8}}>
+        {[
+          {l:'Приёмов',v:todayApps.length,icon:'📋'},
+          {l:'Пришли',v:todayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length,icon:'✅'},
+          {l:'Ждут',v:todayApps.filter(a=>a.status==='Запланирован').length,icon:'⏳'},
+          {l:'Отмена',v:todayApps.filter(a=>a.status==='Отменён').length,icon:'❌'}
+        ].map(({l,v,icon})=>(
+          <div key={l} style={{flex:1,background:'rgba(255,255,255,.22)',borderRadius:16,padding:'12px 6px',textAlign:'center',minWidth:0}}>
+            <div style={{fontSize:22,marginBottom:4,lineHeight:1}}>{icon}</div>
+            <div style={{fontWeight:800,fontSize:22,color:'#fff',lineHeight:1,fontFamily:'DM Sans,sans-serif'}}>{v}</div>
+            <div style={{color:'rgba(255,255,255,.8)',fontSize:10,marginTop:4,lineHeight:1.2}}>{l}</div>
           </div>
         ))}
       </div>
@@ -131,9 +137,9 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
 
     <div style={{display:'flex',gap:10}}>
       {[{l:'Выручка',v:revenue,c:C.green},{l:'Ожидает',v:pend,c:C.orange},{l:'Долги',v:debt,c:C.red}].map(({l,v,c})=>(
-        <Card key={l} style={{flex:1,padding:'12px 8px',textAlign:'center',borderTop:`3px solid ${c}`}}>
-          <div style={{color:C.muted,fontSize:10,marginBottom:4}}>{l}</div>
-          <div style={{fontFamily:'Syne',fontWeight:700,fontSize:13,color:c}}>{v.toLocaleString()} ₽</div>
+        <Card key={l} style={{flex:1,padding:'14px 10px',borderTop:`3px solid ${c}`}}>
+          <div style={{color:C.muted,fontSize:11,marginBottom:6}}>{l}</div>
+          <div style={{fontWeight:800,fontSize:15,color:c,fontFamily:'DM Sans,sans-serif'}}>{v.toLocaleString()} ₽</div>
         </Card>
       ))}
     </div>
