@@ -638,10 +638,20 @@ const TABS=[
   {id:'finances', icon:'💰',label:'Финансы'},
   {id:'tasks',    icon:'✅',label:'Задачи'},
   {id:'specialties',icon:'🩺',label:'Справочник'},
+  {id:'users',    icon:'🔐',label:'Доступы'},
 ];
 
-function App(){
-  const[tab,setTab]=useState('dashboard');const[menuOpen,setMenuOpen]=useState(false);
+const ROLE_TABS={
+  admin:   ['dashboard','reception','schedule','patients','doctors','finances','tasks','specialties','users'],
+  reception:['reception','schedule','patients','finances'],
+  doctor:  ['schedule','patients'],
+  accountant:['finances','dashboard'],
+};
+
+function App({user,onLogout}){
+  const allowedTabs=ROLE_TABS[user?.role]||['reception'];
+  const[tab,setTab]=useState(allowedTabs[0]);
+  const[menuOpen,setMenuOpen]=useState(false);
   const doctors=useTable('clinic_doctors','created_at',true);
   const patients=useTable('clinic_patients','created_at',false);
   const appts=useTable('clinic_appointments','created_at',false);
@@ -663,7 +673,7 @@ function App(){
   return <>
     <style>{gcss}</style>
     <div style={{minHeight:'100vh',background:C.bg,paddingBottom:72}}>
-      <div style={{padding:'14px 16px 12px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+      <div style={{padding:'12px 16px 10px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -671,6 +681,10 @@ function App(){
             <div style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.accent,fontWeight:600}}>{todayCnt} сегодня</div>
             <button onClick={()=>setMenuOpen(true)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,fontSize:18,color:C.muted}}>☰</button>
           </div>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:5}}>
+          <div style={{fontSize:11,color:C.muted}}>👤 {user?.name} <span style={{background:C.accent+'18',color:C.accent,borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span></div>
+          <button onClick={onLogout} style={{background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',textDecoration:'underline'}}>Выйти</button>
         </div>
       </div>
 
@@ -681,28 +695,29 @@ function App(){
         {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
         {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
         {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties}/>}
+        {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
         {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
         {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
       </div>
     </div>
 
-    {/* Bottom nav */}
+    {/* Bottom nav — только разрешённые вкладки */}
     <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,display:'flex',padding:'6px 0 8px',zIndex:50,boxShadow:'0 -2px 8px rgba(0,0,0,.06)'}}>
-      {TABS.slice(0,5).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent'}}>
+      {TABS.filter(t=>allowedTabs.includes(t.id)).slice(0,5).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent'}}>
         <span style={{fontSize:17}}>{t.icon}</span>
         <span style={{fontSize:9,color:tab===t.id?C.accent:C.muted,fontWeight:tab===t.id?600:400}}>{t.label}</span>
       </button>)}
-      <button onClick={()=>setMenuOpen(true)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:'2px solid transparent'}}>
+      {allowedTabs.length>5&&<button onClick={()=>setMenuOpen(true)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:'2px solid transparent'}}>
         <span style={{fontSize:17}}>⋯</span>
         <span style={{fontSize:9,color:C.muted}}>Ещё</span>
-      </button>
+      </button>}
     </div>
 
     {menuOpen&&<div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.5)',zIndex:300,display:'flex',alignItems:'flex-end'}} onClick={()=>setMenuOpen(false)}>
       <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,margin:'0 auto',boxShadow:'0 -8px 40px rgba(0,0,0,.15)',animation:'slideUp .22s ease'}}>
         <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,marginBottom:16,color:C.text}}>Все разделы</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-          {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+          {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
             <span style={{fontSize:22}}>{t.icon}</span>
             <span style={{fontSize:11,color:tab===t.id?C.accent:C.text,fontWeight:600,textAlign:'center'}}>{t.label}</span>
           </button>)}
@@ -712,7 +727,161 @@ function App(){
   </>;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// ══════════════════════════════════════════════════════════════════════════════
+// USERS TAB (только для админа)
+// ══════════════════════════════════════════════════════════════════════════════
+function UsersTab({doctors}){
+  const[users,setUsers]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[showAdd,setShowAdd]=useState(false);
+  const[sel,setSel]=useState(null);
+  const[saving,setSaving]=useState(false);
+  const ef={login:'',password_hash:'',name:'',role:'reception',doctor_id:'',active:true};
+  const[form,setForm]=useState(ef);
+
+  const ROLES=[
+    {id:'admin',label:'Администратор',desc:'Полный доступ ко всему',icon:'👑'},
+    {id:'reception',label:'Ресепшн',desc:'Расписание, пациенты, платежи',icon:'🏥'},
+    {id:'doctor',label:'Врач',desc:'Своё расписание и ЭМК',icon:'👨‍⚕️'},
+    {id:'accountant',label:'Бухгалтер',desc:'Только финансы',icon:'💰'},
+  ];
+
+  useEffect(()=>{load();},[]);
+  const load=async()=>{setLoading(true);const{data}=await db.from('clinic_users').select('*').order('created_at',{ascending:true});setUsers(data||[]);setLoading(false);};
+
+  const save=async()=>{
+    if(!form.login.trim()||!form.password_hash.trim()||!form.name.trim())return;
+    setSaving(true);
+    if(sel){await db.from('clinic_users').update({...form,doctor_id:form.doctor_id||null}).eq('id',sel.id);}
+    else{await db.from('clinic_users').insert({...form,doctor_id:form.doctor_id||null});}
+    await load();setShowAdd(false);setSel(null);setForm(ef);setSaving(false);
+  };
+
+  const toggleActive=async(u)=>{await db.from('clinic_users').update({active:!u.active}).eq('id',u.id);await load();};
+  const delUser=async(id)=>{await db.from('clinic_users').delete().eq('id',id);await load();setSel(null);};
+
+  const roleInfo=r=>ROLES.find(x=>x.id===r)||{label:r,icon:'👤'};
+
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+      <span style={{fontWeight:700,fontSize:16,color:C.text}}>Пользователи ({users.length})</span>
+      <Btn small onClick={()=>{setForm(ef);setShowAdd(true);}}>+ Добавить</Btn>
+    </div>
+
+    {loading?<Spinner/>:<div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {users.map(u=><Card key={u.id} style={{padding:'14px 16px',borderLeft:`4px solid ${u.active?C.accent:C.muted}`}}>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <div style={{width:40,height:40,borderRadius:'50%',background:C.accent+'18',border:`2px solid ${C.accent}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{roleInfo(u.role).icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,color:C.text}}>{u.name}</div>
+            <div style={{color:C.muted,fontSize:12,marginTop:2}}>@{u.login} · {roleInfo(u.role).label}</div>
+          </div>
+          <div style={{display:'flex',gap:6}}>
+            <div onClick={()=>toggleActive(u)} style={{background:u.active?C.green+'18':C.muted+'18',border:`1px solid ${u.active?C.green:C.muted}44`,borderRadius:20,padding:'3px 10px',fontSize:11,color:u.active?C.green:C.muted,fontWeight:600,cursor:'pointer'}}>{u.active?'Активен':'Откл.'}</div>
+            <button onClick={()=>{setSel(u);setForm({login:u.login,password_hash:u.password_hash,name:u.name,role:u.role,doctor_id:u.doctor_id||'',active:u.active});setShowAdd(true);}} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:'4px 10px',fontSize:12,color:C.muted}}>✏️</button>
+          </div>
+        </div>
+      </Card>)}
+    </div>}
+
+    {showAdd&&<Modal title={sel?'Редактировать':'Новый пользователь'} onClose={()=>{setShowAdd(false);setSel(null);setForm(ef);}}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Имя *" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+        <input placeholder="Логин *" value={form.login} onChange={e=>setForm({...form,login:e.target.value})} autoComplete="off"/>
+        <input placeholder="Пароль *" type="password" value={form.password_hash} onChange={e=>setForm({...form,password_hash:e.target.value})} autoComplete="new-password"/>
+
+        <div style={{fontWeight:600,fontSize:13,color:C.muted,marginTop:4}}>РОЛЬ</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {ROLES.map(r=><div key={r.id} onClick={()=>setForm({...form,role:r.id})} style={{display:'flex',gap:12,alignItems:'center',padding:'10px 14px',borderRadius:12,border:`1.5px solid ${form.role===r.id?C.accent:C.border}`,background:form.role===r.id?C.accent+'08':C.bg,cursor:'pointer'}}>
+            <span style={{fontSize:20}}>{r.icon}</span>
+            <div style={{flex:1}}><div style={{fontWeight:600,color:C.text,fontSize:14}}>{r.label}</div><div style={{color:C.muted,fontSize:12}}>{r.desc}</div></div>
+            {form.role===r.id&&<span style={{color:C.accent,fontSize:18}}>✓</span>}
+          </div>)}
+        </div>
+
+        {form.role==='doctor'&&<div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Привязать к врачу</div>
+          <select value={form.doctor_id} onChange={e=>setForm({...form,doctor_id:e.target.value})}>
+            <option value="">— Выбрать врача —</option>
+            {doctors.data.map(d=><option key={d.id} value={d.id}>{d.name}{d.specialty?` (${d.specialty})`:''}</option>)}
+          </select>
+        </div>}
+
+        <div style={{display:'flex',gap:10}}>
+          <Btn full onClick={save} disabled={saving}>{saving?'Сохранение...':(sel?'Сохранить':'Добавить')}</Btn>
+          {sel&&<Btn outline color={C.red} onClick={()=>delUser(sel.id)}>Удалить</Btn>}
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGIN SCREEN
+// ══════════════════════════════════════════════════════════════════════════════
+function LoginScreen({onLogin}){
+  const[login,setLogin]=useState('');
+  const[password,setPassword]=useState('');
+  const[error,setError]=useState('');
+  const[loading,setLoading]=useState(false);
+
+  const doLogin=async()=>{
+    if(!login.trim()||!password.trim()){setError('Введите логин и пароль');return;}
+    setLoading(true);setError('');
+    try{
+      const{data:users}=await db.from('clinic_users').select('*').eq('login',login.trim()).eq('active',true);
+      const user=users?.[0];
+      if(!user){setError('Пользователь не найден');setLoading(false);return;}
+      if(user.password_hash!==password){setError('Неверный пароль');setLoading(false);return;}
+      localStorage.setItem('clinic_auth',JSON.stringify({id:user.id,name:user.name,role:user.role,doctor_id:user.doctor_id,login:user.login}));
+      onLogin(user);
+    }catch{setError('Ошибка подключения');}
+    setLoading(false);
+  };
+
+  const handleKey=e=>{if(e.key==='Enter')doLogin();};
+
+  return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+    <div style={{width:'100%',maxWidth:400}}>
+      <div style={{textAlign:'center',marginBottom:32}}>
+        <div style={{width:72,height:72,background:'rgba(255,255,255,.2)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,margin:'0 auto 14px',backdropFilter:'blur(10px)'}}>🏥</div>
+        <div style={{fontWeight:800,fontSize:28,color:'#fff',fontFamily:'DM Sans,Arial,sans-serif'}}>Клиника</div>
+        <div style={{color:'rgba(255,255,255,.7)',fontSize:14,marginTop:6}}>Система управления</div>
+      </div>
+      <Card style={{padding:28}}>
+        <div style={{fontWeight:700,fontSize:18,marginBottom:4,color:C.text}}>Вход</div>
+        <div style={{color:C.muted,fontSize:13,marginBottom:20}}>Введите логин и пароль</div>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div><div style={{fontSize:12,color:C.muted,marginBottom:6,fontWeight:500}}>Логин</div><input placeholder="admin" value={login} onChange={e=>setLogin(e.target.value)} onKeyDown={handleKey} autoComplete="username"/></div>
+          <div><div style={{fontSize:12,color:C.muted,marginBottom:6,fontWeight:500}}>Пароль</div><input type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={handleKey} autoComplete="current-password"/></div>
+          {error&&<div style={{background:C.red+'12',border:`1px solid ${C.red}33`,borderRadius:12,padding:'10px 14px',color:C.red,fontSize:13}}>{error}</div>}
+          <Btn onClick={doLogin} full disabled={loading}>{loading?'Проверяем...':'Войти'}</Btn>
+        </div>
+      </Card>
+    </div>
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROOT APP (с авторизацией)
+// ══════════════════════════════════════════════════════════════════════════════
+function AppWithAuth(){
+  const[user,setUser]=useState(null);
+  const[checking,setChecking]=useState(true);
+
+  useEffect(()=>{
+    try{const s=localStorage.getItem('clinic_auth');if(s)setUser(JSON.parse(s));}catch{}
+    setChecking(false);
+  },[]);
+
+  if(checking) return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:36,height:36,border:'3px solid rgba(255,255,255,.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin .8s linear infinite'}}/></div>;
+
+  if(!user) return <LoginScreen onLogin={u=>setUser(u)}/>;
+
+  return <App user={user} onLogout={()=>{localStorage.removeItem('clinic_auth');setUser(null);}}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<AppWithAuth/>);
 </script>
 </body>
 </html>
