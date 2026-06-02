@@ -444,6 +444,18 @@ function DoctorsTab({doctors,specialties}){
   const[showAdd,setShowAdd]=useState(false);const[sel,setSel]=useState(null);const[editing,setEditing]=useState(false);
   const ef={name:'',specialty:'',specialtyCustom:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
   const[form,setForm]=useState(ef);const[saving,setSaving]=useState(false);const fileRef=useRef();const slots=genSlots('06:00','22:30');
+  const[search,setSearch]=useState('');
+  const[specFilter,setSpecFilter]=useState('');
+
+  // Все уникальные специализации из врачей
+  const allSpecs=React.useMemo(()=>[...new Set(doctors.data.map(d=>d.specialty).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru')),[doctors.data]);
+
+  // Фильтрация
+  const filtered=doctors.data.filter(d=>{
+    const matchSearch=!search||d.name.toLowerCase().includes(search.toLowerCase());
+    const matchSpec=!specFilter||d.specialty===specFilter;
+    return matchSearch&&matchSpec;
+  });
   const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);};
   const getSpecialty=()=>form.specialty==='__custom__'?(form.specialtyCustom||''):form.specialty;
   const saveDoc=async()=>{
@@ -456,13 +468,39 @@ function DoctorsTab({doctors,specialties}){
   };
 
   return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span><Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn></div>
-    {doctors.loading?<Spinner/>:doctors.data.length===0?<div style={{textAlign:'center',color:C.muted,padding:50}}><div style={{fontSize:40,marginBottom:12}}>👨‍⚕️</div>Добавьте первого врача</div>:(
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span>
+      <Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn>
+    </div>
+
+    {/* Поиск */}
+    <input placeholder="🔍 Поиск по ФИО..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:10}}/>
+
+    {/* Фильтр по специализации */}
+    {allSpecs.length>0&&<div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:4}}>
+      <div onClick={()=>setSpecFilter('')} style={{background:specFilter===''?C.accent+'18':C.card,border:`1.5px solid ${specFilter===''?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:specFilter===''?C.accent:C.muted,fontWeight:600,flexShrink:0}}>Все</div>
+      {allSpecs.map(s=><div key={s} onClick={()=>setSpecFilter(specFilter===s?'':s)} style={{background:specFilter===s?C.accent+'18':C.card,border:`1.5px solid ${specFilter===s?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:specFilter===s?C.accent:C.muted,fontWeight:600,flexShrink:0}}>{s}</div>)}
+    </div>}
+
+    {/* Счётчик */}
+    {(search||specFilter)&&<div style={{fontSize:12,color:C.muted,marginBottom:10}}>
+      Найдено: {filtered.length} из {doctors.data.length}
+    </div>}
+
+    {doctors.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>
+      <div style={{fontSize:36,marginBottom:8}}>🔍</div>
+      <div>Врачи не найдены</div>
+      {(search||specFilter)&&<div style={{fontSize:12,marginTop:6}}><button onClick={()=>{setSearch('');setSpecFilter('');}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',textDecoration:'underline'}}>Сбросить фильтры</button></div>}
+    </div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        {doctors.data.map(d=><Card key={d.id} onClick={()=>setSel(d)} style={{padding:'14px 16px',cursor:'pointer',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
+        {filtered.map(d=><Card key={d.id} onClick={()=>setSel(d)} style={{padding:'14px 16px',cursor:'pointer',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <DoctorAvatar doctor={d} size={44}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>{d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}<div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div></div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>
+              {d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}
+              <div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div>
+            </div>
             <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'18':C.muted+'18',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600}}>{d.active?'Работает':'Выходной'}</div>
           </div>
         </Card>)}
