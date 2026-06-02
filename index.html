@@ -85,9 +85,15 @@ function Card({children,style={},onClick}){
 // ── Supabase hook ─────────────────────────────────────────────────────────────
 function useTable(table,orderCol='created_at',orderAsc=false){
   const[data,setData]=useState([]);const[loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{setLoading(true);const{data:rows}=await db.from(table).select('*').order(orderCol,{ascending:orderAsc});setData(rows||[]);setLoading(false);},[table]);
+  const load=useCallback(async()=>{
+    setLoading(true);
+    const{data:rows,error}=await db.from(table).select('*').order(orderCol,{ascending:orderAsc}).limit(1000);
+    if(error)console.error('useTable error',table,error);
+    setData(rows||[]);
+    setLoading(false);
+  },[table]);
   useEffect(()=>{load();},[load]);
-  const insert=async row=>{const{data:ins}=await db.from(table).insert(row).select().single();setData(p=>[ins,...p]);return ins;};
+  const insert=async row=>{const{data:ins,error}=await db.from(table).insert(row).select().single();if(error)console.error('insert error',table,error);setData(p=>[ins,...p]);return ins;};
   const update=async(id,ch)=>{await db.from(table).update(ch).eq('id',id);setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));};
   const remove=async id=>{await db.from(table).delete().eq('id',id);setData(p=>p.filter(r=>r.id!==id));};
   return{data,loading,load,insert,update,remove};
