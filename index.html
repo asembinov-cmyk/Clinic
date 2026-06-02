@@ -651,7 +651,7 @@ const ROLE_TABS={
 function App({user,onLogout}){
   const allowedTabs=ROLE_TABS[user?.role]||['reception'];
   const[tab,setTab]=useState(allowedTabs[0]);
-  const[menuOpen,setMenuOpen]=useState(false);
+  const[sideOpen,setSideOpen]=useState(false);
   const doctors=useTable('clinic_doctors','created_at',true);
   const patients=useTable('clinic_patients','created_at',false);
   const appts=useTable('clinic_appointments','created_at',false);
@@ -672,19 +672,18 @@ function App({user,onLogout}){
 
   return <>
     <style>{gcss}</style>
-    <div style={{minHeight:'100vh',background:C.bg,paddingBottom:72}}>
+    <div style={{minHeight:'100vh',background:C.bg,paddingBottom:0}}>
       <div style={{padding:'12px 16px 10px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button onClick={()=>setSideOpen(true)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,width:36,height:36,fontSize:18,color:C.muted,cursor:'pointer',flexShrink:0}}>☰</button>
           <div style={{flex:1}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             {overdueCnt>0&&<div style={{background:C.red+'18',border:`1px solid ${C.red}33`,borderRadius:20,padding:'2px 8px',fontSize:11,color:C.red,fontWeight:600}}>⚠{overdueCnt}</div>}
             <div style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.accent,fontWeight:600}}>{todayCnt} сегодня</div>
-            <button onClick={()=>setMenuOpen(true)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,fontSize:18,color:C.muted}}>☰</button>
           </div>
         </div>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:5}}>
-          <div style={{fontSize:11,color:C.muted}}>👤 {user?.name} <span style={{background:C.accent+'18',color:C.accent,borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span></div>
-          <button onClick={onLogout} style={{background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',textDecoration:'underline'}}>Выйти</button>
+        <div style={{marginTop:5,paddingLeft:46,fontSize:11,color:C.muted}}>
+          👤 {user?.name} <span style={{background:C.accent+'18',color:C.accent,borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span>
         </div>
       </div>
 
@@ -701,29 +700,37 @@ function App({user,onLogout}){
       </div>
     </div>
 
-    {/* Bottom nav — только разрешённые вкладки */}
-    <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,display:'flex',padding:'6px 0 8px',zIndex:50,boxShadow:'0 -2px 8px rgba(0,0,0,.06)'}}>
-      {TABS.filter(t=>allowedTabs.includes(t.id)).slice(0,5).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent'}}>
-        <span style={{fontSize:17}}>{t.icon}</span>
-        <span style={{fontSize:9,color:tab===t.id?C.accent:C.muted,fontWeight:tab===t.id?600:400}}>{t.label}</span>
-      </button>)}
-      {allowedTabs.length>5&&<button onClick={()=>setMenuOpen(true)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:'2px solid transparent'}}>
-        <span style={{fontSize:17}}>⋯</span>
-        <span style={{fontSize:9,color:C.muted}}>Ещё</span>
-      </button>}
-    </div>
-
-    {menuOpen&&<div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.5)',zIndex:300,display:'flex',alignItems:'flex-end'}} onClick={()=>setMenuOpen(false)}>
-      <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,margin:'0 auto',boxShadow:'0 -8px 40px rgba(0,0,0,.15)',animation:'slideUp .22s ease'}}>
-        <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,marginBottom:16,color:C.text}}>Все разделы</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-          {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
-            <span style={{fontSize:22}}>{t.icon}</span>
-            <span style={{fontSize:11,color:tab===t.id?C.accent:C.text,fontWeight:600,textAlign:'center'}}>{t.label}</span>
-          </button>)}
+    {/* Sidebar */}
+    <div style={{position:'fixed',top:0,left:sideOpen?0:-240,width:240,height:'100vh',background:C.card,borderRight:`1px solid ${C.border}`,zIndex:100,boxShadow:'4px 0 20px rgba(0,0,0,.1)',transition:'left .25s ease',display:'flex',flexDirection:'column'}}>
+      {/* Sidebar header */}
+      <div style={{padding:'20px 16px 16px',borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <span style={{fontWeight:800,fontSize:18,color:C.accent,fontFamily:'DM Sans,Arial,sans-serif'}}>🏥 Клиника</span>
+          <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
+        </div>
+        <div style={{background:C.bg,borderRadius:10,padding:'8px 12px'}}>
+          <div style={{fontWeight:600,fontSize:13,color:C.text}}>👤 {user?.name}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{({admin:'Администратор',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</div>
         </div>
       </div>
-    </div>}
+      {/* Nav items */}
+      <div style={{flex:1,overflowY:'auto',padding:'8px 8px'}}>
+        {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setSideOpen(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:tab===t.id?C.accent+'18':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left'}}>
+          <span style={{fontSize:18,width:24,textAlign:'center'}}>{t.icon}</span>
+          <span style={{fontSize:14,fontWeight:tab===t.id?600:400,color:tab===t.id?C.accent:C.text}}>{t.label}</span>
+        </button>)}
+      </div>
+      {/* Logout */}
+      <div style={{padding:'12px 8px',borderTop:`1px solid ${C.border}`}}>
+        <button onClick={onLogout} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:'none',border:`1px solid ${C.border}`,cursor:'pointer',color:C.red}}>
+          <span style={{fontSize:18}}>🚪</span>
+          <span style={{fontSize:14,fontWeight:500}}>Выйти</span>
+        </button>
+      </div>
+    </div>
+
+    {/* Sidebar overlay */}
+    {sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.3)',zIndex:99}}/>}
   </>;
 }
 
