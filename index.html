@@ -20,25 +20,27 @@ const SUPA_URL='https://zcewrdkwkfudpsybjglb.supabase.co';
 const SUPA_KEY='sb_publishable_QrN5N_msKkdzfDlJHXdJ-Q_pNEejVQm';
 const db=createClient(SUPA_URL,SUPA_KEY);
 
-// ── СВЕТЛАЯ ТЕМА ─────────────────────────────────────────────────────────────
+// ── ТЕМА LUCEM PURPLE ─────────────────────────────────────────────────────────
 const C={
-  bg:"#f4f6fb", card:"#ffffff", card2:"#f0f3fa", border:"#e2e8f0",
-  accent:"#2563eb", green:"#16a34a", orange:"#ea580c", red:"#dc2626",
-  purple:"#7c3aed", teal:"#0891b2", text:"#1e293b", muted:"#64748b", muted2:"#94a3b8"
+  bg:"#f8f4ff", card:"#ffffff", card2:"#f3e8ff", border:"#e9d5ff",
+  accent:"#7c3aed", green:"#16a34a", orange:"#ea580c", red:"#dc2626",
+  purple:"#7c3aed", teal:"#0891b2", text:"#1e293b", muted:"#64748b", muted2:"#94a3b8",
+  sidebar:"#4a1b6d", sidebarDark:"#3b1560", sidebarBorder:"rgba(255,255,255,.1)",
+  sidebarText:"rgba(255,255,255,.6)", sidebarActive:"rgba(255,255,255,.15)"
 };
-const DC=["#2563eb","#16a34a","#ea580c","#dc2626","#7c3aed","#0891b2","#ca8a04","#db2777"];
+const DC=["#7c3aed","#16a34a","#ea580c","#dc2626","#0891b2","#ca8a04","#db2777","#2563eb"];
 const STATUS_C={"Запланирован":C.accent,"Пришёл":C.green,"Отменён":C.red,"Завершён":C.muted};
 const PAY_C={"Оплачено":C.green,"Ожидает":C.orange,"Долг":C.red};
 
 const gcss=`
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#f4f6fb;color:#1e293b;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;}
-input,textarea,select{background:#fff;border:1.5px solid #e2e8f0;color:#1e293b;padding:10px 14px;border-radius:12px;font-family:inherit;font-size:14px;width:100%;outline:none;transition:border-color .2s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
-input:focus,textarea:focus,select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+body{background:#f8f4ff;color:#1e293b;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;}
+input,textarea,select{background:#fff;border:1.5px solid #e9d5ff;color:#1e293b;padding:10px 14px;border-radius:12px;font-family:inherit;font-size:14px;width:100%;outline:none;transition:border-color .2s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+input:focus,textarea:focus,select:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
 select option{background:#fff;color:#1e293b;}
 button{cursor:pointer;font-family:inherit;border:none;}
 ::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:4px;}
+::-webkit-scrollbar-thumb{background:#e9d5ff;border-radius:4px;}
 @keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 @keyframes spin{to{transform:rotate(360deg);}}
 `;
@@ -673,17 +675,21 @@ function App({user,onLogout}){
   return <>
     <style>{gcss}</style>
     <div style={{minHeight:'100vh',background:C.bg,paddingBottom:0}}>
-      <div style={{padding:'12px 16px 10px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+      <div style={{padding:'12px 16px 10px',borderBottom:`1px solid ${C.border}`,background:'#4a1b6d',position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 12px rgba(74,27,109,.3)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <button onClick={()=>setSideOpen(true)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,width:36,height:36,fontSize:18,color:C.muted,cursor:'pointer',flexShrink:0}}>☰</button>
-          <div style={{flex:1}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
+          <button onClick={()=>setSideOpen(true)} style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:10,width:36,height:36,fontSize:18,color:'#fff',cursor:'pointer',flexShrink:0}}>☰</button>
+          <div style={{flex:1}}>
+            <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:18,color:'#fff',letterSpacing:1}}>LUCEM</span>
+            <span style={{color:'rgba(255,255,255,.5)',fontSize:10,marginLeft:6,letterSpacing:.5}}>MEDICAL CLINIC</span>
+            <span style={{color:'rgba(255,255,255,.4)',fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span>
+          </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            {overdueCnt>0&&<div style={{background:C.red+'18',border:`1px solid ${C.red}33`,borderRadius:20,padding:'2px 8px',fontSize:11,color:C.red,fontWeight:600}}>⚠{overdueCnt}</div>}
-            <div style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.accent,fontWeight:600}}>{todayCnt} сегодня</div>
+            {overdueCnt>0&&<div style={{background:'rgba(239,68,68,.3)',border:'1px solid rgba(239,68,68,.5)',borderRadius:20,padding:'2px 8px',fontSize:11,color:'#fca5a5',fontWeight:600}}>⚠{overdueCnt}</div>}
+            <div style={{background:'rgba(255,255,255,.15)',border:'1px solid rgba(255,255,255,.2)',borderRadius:20,padding:'2px 10px',fontSize:11,color:'rgba(255,255,255,.9)',fontWeight:600}}>{todayCnt} сегодня</div>
           </div>
         </div>
-        <div style={{marginTop:5,paddingLeft:46,fontSize:11,color:C.muted}}>
-          👤 {user?.name} <span style={{background:C.accent+'18',color:C.accent,borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span>
+        <div style={{marginTop:6,paddingLeft:46,fontSize:11,color:'rgba(255,255,255,.5)'}}>
+          👤 {user?.name} <span style={{background:'rgba(255,255,255,.15)',color:'rgba(255,255,255,.9)',borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span>
         </div>
       </div>
 
@@ -701,36 +707,43 @@ function App({user,onLogout}){
     </div>
 
     {/* Sidebar */}
-    <div style={{position:'fixed',top:0,left:sideOpen?0:-240,width:240,height:'100vh',background:C.card,borderRight:`1px solid ${C.border}`,zIndex:100,boxShadow:'4px 0 20px rgba(0,0,0,.1)',transition:'left .25s ease',display:'flex',flexDirection:'column'}}>
-      {/* Sidebar header */}
-      <div style={{padding:'20px 16px 16px',borderBottom:`1px solid ${C.border}`}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-          <span style={{fontWeight:800,fontSize:18,color:C.accent,fontFamily:'DM Sans,Arial,sans-serif'}}>🏥 Клиника</span>
-          <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
+    <div style={{position:'fixed',top:0,left:sideOpen?0:-260,width:260,height:'100vh',background:'#4a1b6d',borderRight:'none',zIndex:100,boxShadow:'4px 0 24px rgba(74,27,109,.4)',transition:'left .25s ease',display:'flex',flexDirection:'column'}}>
+      {/* Logo */}
+      <div style={{padding:'20px 20px 16px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div>
+            <div style={{color:'#fff',fontWeight:800,fontSize:18,letterSpacing:2,fontFamily:'DM Sans,Arial,sans-serif'}}>LUCEM</div>
+            <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:1,marginTop:1}}>MEDICAL CLINIC</div>
+          </div>
+          <button onClick={()=>setSideOpen(false)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'rgba(255,255,255,.7)',borderRadius:8,width:28,height:28,fontSize:16,cursor:'pointer',lineHeight:1}}>×</button>
         </div>
-        <div style={{background:C.bg,borderRadius:10,padding:'8px 12px'}}>
-          <div style={{fontWeight:600,fontSize:13,color:C.text}}>👤 {user?.name}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{({admin:'Администратор',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</div>
+        {/* User card */}
+        <div style={{background:'rgba(255,255,255,.1)',borderRadius:10,padding:'10px 12px'}}>
+          <div style={{color:'#fff',fontWeight:600,fontSize:13}}>{user?.name}</div>
+          <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>{({admin:'Администратор',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</div>
         </div>
       </div>
+
       {/* Nav items */}
-      <div style={{flex:1,overflowY:'auto',padding:'8px 8px'}}>
-        {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setSideOpen(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:tab===t.id?C.accent+'18':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left'}}>
+      <div style={{flex:1,overflowY:'auto',padding:'10px 10px'}}>
+        {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setSideOpen(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:tab===t.id?'rgba(255,255,255,.15)':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',transition:'background .15s'}}>
           <span style={{fontSize:18,width:24,textAlign:'center'}}>{t.icon}</span>
-          <span style={{fontSize:14,fontWeight:tab===t.id?600:400,color:tab===t.id?C.accent:C.text}}>{t.label}</span>
+          <span style={{fontSize:14,fontWeight:tab===t.id?600:400,color:tab===t.id?'#fff':'rgba(255,255,255,.6)'}}>{t.label}</span>
+          {tab===t.id&&<div style={{marginLeft:'auto',width:4,height:4,borderRadius:'50%',background:'#fff'}}/>}
         </button>)}
       </div>
+
       {/* Logout */}
-      <div style={{padding:'12px 8px',borderTop:`1px solid ${C.border}`}}>
-        <button onClick={onLogout} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:'none',border:`1px solid ${C.border}`,cursor:'pointer',color:C.red}}>
+      <div style={{padding:'12px 10px',borderTop:'1px solid rgba(255,255,255,.1)'}}>
+        <button onClick={onLogout} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:'rgba(255,255,255,.08)',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)'}}>
           <span style={{fontSize:18}}>🚪</span>
           <span style={{fontSize:14,fontWeight:500}}>Выйти</span>
         </button>
       </div>
     </div>
 
-    {/* Sidebar overlay */}
-    {sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.3)',zIndex:99}}/>}
+    {/* Overlay */}
+    {sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:99}}/>}
   </>;
 }
 
@@ -848,12 +861,14 @@ function LoginScreen({onLogin}){
 
   const handleKey=e=>{if(e.key==='Enter')doLogin();};
 
-  return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+  return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#4a1b6d,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
     <div style={{width:'100%',maxWidth:400}}>
       <div style={{textAlign:'center',marginBottom:32}}>
-        <div style={{width:72,height:72,background:'rgba(255,255,255,.2)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,margin:'0 auto 14px',backdropFilter:'blur(10px)'}}>🏥</div>
-        <div style={{fontWeight:800,fontSize:28,color:'#fff',fontFamily:'DM Sans,Arial,sans-serif'}}>Клиника</div>
-        <div style={{color:'rgba(255,255,255,.7)',fontSize:14,marginTop:6}}>Система управления</div>
+        <div style={{marginBottom:16}}>
+          <div style={{color:'#fff',fontWeight:800,fontSize:32,letterSpacing:3,fontFamily:'DM Sans,Arial,sans-serif'}}>LUCEM</div>
+          <div style={{color:'rgba(255,255,255,.6)',fontSize:13,letterSpacing:2,marginTop:4}}>MEDICAL CLINIC</div>
+        </div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:13}}>Система управления клиникой</div>
       </div>
       <Card style={{padding:28}}>
         <div style={{fontWeight:700,fontSize:18,marginBottom:4,color:C.text}}>Вход</div>
