@@ -984,40 +984,27 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
 
 function VisitsTab({user,patients,doctors,appts}){
   const visits=useTable('clinic_visits','created_at',false);
-  const[selVisit,setSelVisit]=useState(null);
-  const[selAppt,setSelAppt]=useState(null); // запись из расписания без визита
-  const[newVisit,setNewVisit]=useState(null);
+  const[expandedId,setExpandedId]=useState(null); // id раскрытой карточки
+  const[expandedForm,setExpandedForm]=useState(null); // {patient,doctor,appointment_id,...} для формы
   const[search,setSearch]=useState('');
   const[filterStatus,setFilterStatus]=useState('all');
   const[filterDoc,setFilterDoc]=useState('');
-  const[screen,setScreen]=useState('list');
 
   const myDoctor=user?.role==='doctor'?doctors.data.find(d=>String(d.id)===String(user.doctor_id)):null;
 
-  // Объединяем: сначала заполненные визиты, потом записи из расписания без визита
   const combined=React.useMemo(()=>{
-    // Все appointment_id у которых уже есть визит
     const linkedApptIds=new Set(visits.data.map(v=>v.appointment_id).filter(Boolean));
-
-    // Записи из расписания без визита — конвертируем в визит-заглушку
     const apptItems=appts.data
       .filter(a=>!linkedApptIds.has(a.id))
       .map(a=>({
-        _type:'appt', id:'appt_'+a.id, appt_id:a.id,
-        patient_name:a.patient_name, patient_id:a.patient_id,
-        doctor_name:a.doctor_name, doctor_id:a.doctor_id,
-        date:a.date, time:a.time, service:a.service,
+        _type:'appt',id:'appt_'+a.id,appt_id:a.id,
+        patient_name:a.patient_name,patient_id:a.patient_id,
+        doctor_name:a.doctor_name,doctor_id:a.doctor_id,
+        date:a.date,time:a.time,service:a.service,
         status:a.status==='Завершён'?'Завершён':a.status==='Отменён'?'Отменён':'Запланирован',
-        visit_status:null // нет визита
       }));
-
-    // Заполненные визиты
     const visitItems=visits.data.map(v=>({...v,_type:'visit'}));
-
-    return [...visitItems,...apptItems].sort((a,b)=>{
-      const da=a.date||'';const db=b.date||'';
-      return db.localeCompare(da);
-    });
+    return [...visitItems,...apptItems].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   },[visits.data,appts.data]);
 
   const filtered=React.useMemo(()=>combined.filter(v=>{
@@ -1032,132 +1019,163 @@ function VisitsTab({user,patients,doctors,appts}){
     return true;
   }),[combined,search,filterStatus,filterDoc,myDoctor]);
 
-  const saveVisit=async(data)=>{
-    if(selVisit&&selVisit._type==='visit'){
-      await visits.update(selVisit.id,data);
-      setSelVisit({...selVisit,...data,_type:'visit'});
-    } else {
-      const ins=await visits.insert(data);
-      setSelVisit({...ins,_type:'visit'});
-    }
-    setScreen('view');
+  const saveVisit=async(data,itemId)=>{
+    const existing=visits.data.find(v=>v.appointment_id===data.appointment_id||v.id===itemId);
+    if(existing){await visits.update(existing.id,data);}
+    else{await visits.insert(data);}
+    setExpandedId(null);
+    setExpandedForm(null);
   };
 
-  const openFormFromAppt=(item)=>{
-    // Открываем форму нового визита с данными из записи расписания
-    const patient=patients.data.find(p=>String(p.id)===String(item.patient_id))||{id:item.patient_id,name:item.patient_name};
-    const doctor=doctors.data.find(d=>String(d.id)===String(item.doctor_id))||{id:item.doctor_id,name:item.doctor_name};
-    setNewVisit({patient,doctor,appointment_id:item.appt_id,date:item.date,service:item.service});
-    setSelVisit(null);
-    setScreen('form');
+  const toggleCard=(v)=>{
+    if(expandedId===v.id){setExpandedId(null);setExpandedForm(null);return;}
+    setExpandedId(v.id);
+    if(v._type==='appt'){
+      const patient=patients.data.find(p=>String(p.id)===String(v.patient_id))||{id:v.patient_id,name:v.patient_name};
+      const doctor=doctors.data.find(d=>String(d.id)===String(v.doctor_id))||{id:v.doctor_id,name:v.doctor_name};
+      setExpandedForm({patient,doctor,appointment_id:v.appt_id,date:v.date,service:v.service,_isAppt:true});
+    } else {
+      setExpandedForm(null);
+    }
   };
 
   const STATUS_V={'Черновик':C.orange,'Завершён':C.green,'Отменён':C.red,'Запланирован':C.accent,'Пришёл':C.purple};
 
-  // Экран просмотра визита
-  if(screen==='view'&&selVisit&&selVisit._type==='visit') return <div>
-    <button onClick={()=>setScreen('list')} style={{background:'none',border:'none',color:C.accent,fontWeight:600,fontSize:14,cursor:'pointer',padding:'0 0 12px',display:'flex',alignItems:'center',gap:4}}>← Все визиты</button>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div>
-        <div style={{fontWeight:700,fontSize:17,color:C.text}}>{selVisit.patient_name}</div>
-        <div style={{color:C.muted,fontSize:12,marginTop:2}}>{selVisit.doctor_name} · {selVisit.date} · <Badge text={selVisit.status} color={STATUS_V[selVisit.status]||C.muted}/></div>
-      </div>
-      <Btn small outline color={C.accent} onClick={()=>setScreen('form')}>✏️ Редактировать</Btn>
-    </div>
-    <div style={{display:'flex',flexDirection:'column',gap:12}}>
-      {selVisit.visit_type&&<div style={{display:'inline-block',background:C.purple+'18',color:C.purple,borderRadius:20,padding:'3px 12px',fontSize:12,fontWeight:600}}>{selVisit.visit_type}</div>}
-      {selVisit.complaints&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ЖАЛОБЫ</div><div style={{fontSize:13,lineHeight:1.6}}>{selVisit.complaints}</div></Card>}
-      {selVisit.anamnesis&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>АНАМНЕЗ</div><div style={{fontSize:13,lineHeight:1.6}}>{selVisit.anamnesis}</div></Card>}
-      {selVisit.general_condition&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ОБЩЕЕ СОСТОЯНИЕ</div><div style={{fontSize:13}}>{selVisit.general_condition}</div></Card>}
-      {selVisit.exam_systems&&Object.keys(selVisit.exam_systems).filter(k=>selVisit.exam_systems[k]).length>0&&
-        <Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:8}}>ОСМОТР ПО СИСТЕМАМ</div>
-          {EXAM_SYSTEMS.filter(s=>selVisit.exam_systems[s.k]).map(s=><div key={s.k} style={{marginBottom:8}}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{s.l}</div><div style={{fontSize:13}}>{selVisit.exam_systems[s.k]}</div></div>)}
-        </Card>}
-      {selVisit.diagnosis&&<Card style={{padding:14,borderLeft:`4px solid ${C.red}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ДИАГНОЗ {selVisit.diagnosis_code&&<span style={{color:C.accent,marginLeft:6}}>{selVisit.diagnosis_code}</span>}</div><div style={{fontSize:14,fontWeight:600,color:C.text}}>{selVisit.diagnosis}</div>{selVisit.diagnosis_type&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>{selVisit.diagnosis_type}</div>}</Card>}
-      {selVisit.prescription&&<Card style={{padding:14,borderLeft:`4px solid ${C.green}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>НАЗНАЧЕНИЯ</div><div style={{fontSize:13,lineHeight:1.7,whiteSpace:'pre-wrap'}}>{selVisit.prescription}</div></Card>}
-      {selVisit.procedures&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ПРОЦЕДУРЫ</div><div style={{fontSize:13}}>{selVisit.procedures}</div></Card>}
-      {selVisit.referrals&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>НАПРАВЛЕНИЯ</div><div style={{fontSize:13}}>{selVisit.referrals}</div></Card>}
-      {selVisit.sick_leave&&<Card style={{padding:14,borderLeft:`4px solid ${C.orange}`}}><div style={{fontSize:13,fontWeight:600}}>🏥 Больничный лист{selVisit.sick_leave_days?` — ${selVisit.sick_leave_days} дней`:''}</div></Card>}
-      {selVisit.next_visit&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Следующий визит</div><div style={{fontSize:14,fontWeight:600,color:C.accent}}>{selVisit.next_visit}</div></Card>}
-      {selVisit.files?.length>0&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:8}}>ФАЙЛЫ ({selVisit.files.length})</div>
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {selVisit.files.map((f,i)=><div key={i} style={{display:'flex',gap:10,alignItems:'center'}}>
-            <span style={{fontSize:18}}>{f.type?.startsWith('image')?'🖼️':'📄'}</span>
-            <span style={{flex:1,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-            {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:48,height:48,objectFit:'cover',borderRadius:8}}/>}
-          </div>)}
-        </div>
-      </Card>}
-    </div>
-  </div>;
-
-  // Экран формы визита
-  if(screen==='form') return <div>
-    <button onClick={()=>setScreen(selVisit?'view':'list')} style={{background:'none',border:'none',color:C.accent,fontWeight:600,fontSize:14,cursor:'pointer',padding:'0 0 12px',display:'flex',alignItems:'center',gap:4}}>← Назад</button>
-    <div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:4}}>{selVisit?'Редактировать визит':'Новый визит'}</div>
-    {(newVisit||selVisit)&&<div style={{display:'flex',gap:10,alignItems:'center',background:C.bg,borderRadius:12,padding:'10px 14px',marginBottom:14,border:`1px solid ${C.border}`}}>
-      <span style={{fontSize:18}}>👤</span>
-      <div>
-        <div style={{fontWeight:600,fontSize:14}}>{newVisit?.patient?.name||selVisit?.patient_name}</div>
-        <div style={{fontSize:12,color:C.muted}}>{newVisit?.doctor?.name||selVisit?.doctor_name}{newVisit?.date?` · ${newVisit.date}`:''}</div>
-        {newVisit?.service&&<div style={{fontSize:12,color:C.accent,marginTop:2}}>{newVisit.service}</div>}
-      </div>
-    </div>}
-    <VisitForm
-      visit={selVisit&&selVisit._type==='visit'?selVisit:null}
-      patient={newVisit?.patient||{id:selVisit?.patient_id,name:selVisit?.patient_name}}
-      doctor={newVisit?.doctor||{id:selVisit?.doctor_id,name:selVisit?.doctor_name}}
-      appointmentId={newVisit?.appointment_id||selVisit?.appointment_id}
-      onSave={saveVisit}
-      onClose={()=>setScreen(selVisit?'view':'list')}/>
-  </div>;
-
-  // Список
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
       <span style={{fontWeight:700,fontSize:16,color:C.text}}>Визиты ({filtered.length})</span>
-      <Btn small onClick={()=>{setSelVisit(null);setNewVisit({patient:patients.data[0]||null,doctor:myDoctor||doctors.data[0]});setScreen('form');}}>+ Визит</Btn>
+      <Btn small onClick={()=>{
+        const patient=patients.data[0]||null;
+        const doctor=myDoctor||doctors.data[0];
+        const fakeId='new_'+Date.now();
+        setExpandedId(fakeId);
+        setExpandedForm({patient,doctor,_isNew:true,_fakeId:fakeId});
+      }}>+ Визит</Btn>
     </div>
 
     <input placeholder="🔍 Поиск по пациенту или врачу..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:10}}/>
 
     <div style={{display:'flex',gap:8,marginBottom:12,overflowX:'auto'}}>
-      {[
-        {id:'all',l:'Все'},
-        {id:'С визитом',l:'Заполнен'},
-        {id:'Без визита',l:'Без осмотра'},
-        {id:'Завершён',l:'Завершён'},
-      ].map(s=><div key={s.id} onClick={()=>setFilterStatus(s.id)} style={{background:filterStatus===s.id?C.accent+'18':C.card,border:`1.5px solid ${filterStatus===s.id?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:filterStatus===s.id?C.accent:C.muted,fontWeight:600,flexShrink:0}}>{s.l}</div>)}
+      {[{id:'all',l:'Все'},{id:'С визитом',l:'Заполнен'},{id:'Без визита',l:'Без осмотра'},{id:'Завершён',l:'Завершён'}].map(s=>
+        <div key={s.id} onClick={()=>setFilterStatus(s.id)} style={{background:filterStatus===s.id?C.accent+'18':C.card,border:`1.5px solid ${filterStatus===s.id?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:filterStatus===s.id?C.accent:C.muted,fontWeight:600,flexShrink:0}}>{s.l}</div>
+      )}
       {user?.role!=='doctor'&&<select value={filterDoc} onChange={e=>setFilterDoc(e.target.value)} style={{marginLeft:'auto',width:'auto',minWidth:140,fontSize:12,padding:'5px 10px',height:34}}>
         <option value="">Все врачи</option>
         {doctors.data.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
       </select>}
     </div>
 
+    {/* Новый визит инлайн */}
+    {expandedForm?._isNew&&<div style={{marginBottom:12}}>
+      <Card style={{padding:'16px 20px',border:`2px solid ${C.accent}`,animation:'slideUp .2s ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <span style={{fontWeight:700,fontSize:16,color:C.text}}>Новый визит</span>
+          <button onClick={()=>{setExpandedId(null);setExpandedForm(null);}} style={{background:'none',border:'none',fontSize:20,color:C.muted,cursor:'pointer'}}>×</button>
+        </div>
+        <div style={{display:'flex',gap:12,marginBottom:14}}>
+          <select onChange={e=>{const p=patients.data.find(x=>String(x.id)===e.target.value);setExpandedForm(f=>({...f,patient:p}));}} style={{flex:1}}>
+            <option value="">— Пациент —</option>
+            {patients.data.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <select onChange={e=>{const d=doctors.data.find(x=>String(x.id)===e.target.value);setExpandedForm(f=>({...f,doctor:d}));}} style={{flex:1}}>
+            <option value="">— Врач —</option>
+            {doctors.data.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        <VisitForm visit={null} patient={expandedForm.patient} doctor={expandedForm.doctor} appointmentId={null}
+          onSave={(data)=>saveVisit(data,null)}
+          onClose={()=>{setExpandedId(null);setExpandedForm(null);}}/>
+      </Card>
+    </div>}
+
     {(visits.loading||appts.loading)?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:50}}>
       <div style={{fontSize:40,marginBottom:12}}>📋</div><div>Визитов нет</div>
     </div>:(
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {filtered.map(v=>{
           const isAppt=v._type==='appt';
+          const isOpen=expandedId===v.id;
           const borderColor=isAppt?(STATUS_C[v.status]||C.muted):(v.status==='Завершён'?C.green:v.status==='Черновик'?C.orange:C.muted);
-          return <Card key={v.id} onClick={()=>{
-            if(isAppt){openFormFromAppt(v);}
-            else{setSelVisit(v);setScreen('view');}
-          }} style={{padding:'14px 16px',cursor:'pointer',borderLeft:`4px solid ${borderColor}`}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
-              <div style={{fontWeight:700,fontSize:15,color:C.text}}>{v.patient_name}</div>
-              <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                {isAppt&&<div style={{background:C.orange+'18',color:C.orange,border:`1px solid ${C.orange}33`,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>БЕЗ ОСМОТРА</div>}
-                <Badge text={v.status} color={borderColor}/>
+
+          return <div key={v.id}>
+            {/* Карточка-заголовок */}
+            <Card onClick={()=>toggleCard(v)} style={{padding:'14px 20px',cursor:'pointer',borderLeft:`4px solid ${borderColor}`,borderBottom:isOpen?'none':'',borderRadius:isOpen?'16px 16px 0 0':'16px',transition:'all .15s'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+                    <span style={{fontWeight:700,fontSize:15,color:C.text}}>{v.patient_name}</span>
+                    {isAppt&&<span style={{background:C.orange+'18',color:C.orange,border:`1px solid ${C.orange}33`,borderRadius:20,padding:'1px 8px',fontSize:10,fontWeight:700}}>БЕЗ ОСМОТРА</span>}
+                  </div>
+                  <div style={{color:C.muted,fontSize:12}}>{v.doctor_name} · {v.date}{v.time?` · ${v.time}`:''}</div>
+                  {v.service&&<div style={{fontSize:12,color:C.teal,marginTop:2}}>{v.service}</div>}
+                  {!isAppt&&v.diagnosis&&<div style={{fontSize:12,color:C.accent,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Dx: {v.diagnosis}</div>}
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0,marginLeft:12}}>
+                  <Badge text={v.status} color={borderColor}/>
+                  <span style={{color:C.muted,fontSize:14,transition:'transform .2s',display:'inline-block',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
+                </div>
               </div>
-            </div>
-            <div style={{color:C.muted,fontSize:12}}>{v.doctor_name} · {v.date}{v.time?` · ${v.time}`:''}</div>
-            {v.service&&<div style={{fontSize:12,color:C.teal,marginTop:3}}>{v.service}</div>}
-            {!isAppt&&v.diagnosis&&<div style={{fontSize:12,color:C.accent,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Dx: {v.diagnosis}</div>}
-            {!isAppt&&v.files?.length>0&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>📎 {v.files.length} файл(ов)</div>}
-            {isAppt&&<div style={{fontSize:11,color:C.orange,marginTop:4,fontWeight:500}}>→ Нажмите чтобы заполнить осмотр</div>}
-          </Card>;
+            </Card>
+
+            {/* Раскрытое содержимое */}
+            {isOpen&&<Card style={{padding:'20px',borderLeft:`4px solid ${borderColor}`,borderTop:'none',borderRadius:'0 0 16px 16px',background:C.bg}}>
+              {isAppt||expandedForm?._isAppt?
+                /* Форма заполнения для записи без осмотра */
+                <VisitForm
+                  visit={null}
+                  patient={expandedForm?.patient||{id:v.patient_id,name:v.patient_name}}
+                  doctor={expandedForm?.doctor||{id:v.doctor_id,name:v.doctor_name}}
+                  appointmentId={v.appt_id||expandedForm?.appointment_id}
+                  onSave={(data)=>saveVisit(data,v.id)}
+                  onClose={()=>{setExpandedId(null);setExpandedForm(null);}}/>
+              :
+                /* Просмотр заполненного визита */
+                <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  {v.visit_type&&<div style={{display:'inline-block',background:C.purple+'18',color:C.purple,borderRadius:20,padding:'3px 12px',fontSize:12,fontWeight:600}}>{v.visit_type}</div>}
+                  {v.complaints&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ЖАЛОБЫ</div><div style={{fontSize:13,lineHeight:1.6,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.complaints}</div></div>}
+                  {v.anamnesis&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>АНАМНЕЗ</div><div style={{fontSize:13,lineHeight:1.6,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.anamnesis}</div></div>}
+                  {v.general_condition&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ОБЩЕЕ СОСТОЯНИЕ</div><div style={{fontSize:13,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.general_condition}</div></div>}
+                  {v.exam_systems&&Object.keys(v.exam_systems).filter(k=>v.exam_systems[k]).length>0&&
+                    <div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ОСМОТР ПО СИСТЕМАМ</div>
+                      <div style={{background:C.card,borderRadius:10,padding:'10px 14px',display:'flex',flexDirection:'column',gap:8}}>
+                        {EXAM_SYSTEMS.filter(s=>v.exam_systems[s.k]).map(s=><div key={s.k}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{s.l}</div><div style={{fontSize:13}}>{v.exam_systems[s.k]}</div></div>)}
+                      </div>
+                    </div>}
+                  {v.diagnosis&&<div style={{background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.red}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ДИАГНОЗ {v.diagnosis_code&&<span style={{color:C.accent,marginLeft:6}}>{v.diagnosis_code}</span>}</div><div style={{fontSize:14,fontWeight:600,color:C.text}}>{v.diagnosis}</div></div>}
+                  {v.prescription&&<div style={{background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.green}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>НАЗНАЧЕНИЯ</div><div style={{fontSize:13,lineHeight:1.7,whiteSpace:'pre-wrap'}}>{v.prescription}</div></div>}
+                  {v.procedures&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ПРОЦЕДУРЫ</div><div style={{fontSize:13,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.procedures}</div></div>}
+                  {v.referrals&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>НАПРАВЛЕНИЯ</div><div style={{fontSize:13,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.referrals}</div></div>}
+                  {v.sick_leave&&<div style={{background:C.card,borderRadius:10,padding:'10px 14px',borderLeft:`3px solid ${C.orange}`}}><span style={{fontSize:13,fontWeight:600}}>🏥 Больничный{v.sick_leave_days?` — ${v.sick_leave_days} дней`:''}</span></div>}
+                  {v.next_visit&&<div style={{background:C.card,borderRadius:10,padding:'10px 14px'}}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>Следующий визит</div><div style={{fontSize:14,fontWeight:600,color:C.accent}}>{v.next_visit}</div></div>}
+                  {v.files?.length>0&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ФАЙЛЫ ({v.files.length})</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                      {v.files.map((f,i)=><div key={i} style={{background:C.card,borderRadius:10,padding:'8px 12px',display:'flex',gap:8,alignItems:'center',fontSize:12}}>
+                        <span>{f.type?.startsWith('image')?'🖼️':'📄'}</span><span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+                        {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:36,height:36,objectFit:'cover',borderRadius:6}}/>}
+                      </div>)}
+                    </div>
+                  </div>}
+                  <div style={{display:'flex',gap:10,paddingTop:8,borderTop:`1px solid ${C.border}`}}>
+                    <Btn small outline color={C.accent} onClick={()=>{
+                      setExpandedForm({patient:{id:v.patient_id,name:v.patient_name},doctor:{id:v.doctor_id,name:v.doctor_name},_editVisit:v,appointment_id:v.appointment_id});
+                    }}>✏️ Редактировать</Btn>
+                    <Btn small outline color={C.red} onClick={async()=>{await visits.remove(v.id);setExpandedId(null);}}>Удалить</Btn>
+                  </div>
+                  {/* Форма редактирования если нажали Редактировать */}
+                  {expandedForm?._editVisit?.id===v.id&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:10,color:C.text}}>Редактирование визита</div>
+                    <VisitForm
+                      visit={expandedForm._editVisit}
+                      patient={{id:v.patient_id,name:v.patient_name}}
+                      doctor={{id:v.doctor_id,name:v.doctor_name}}
+                      appointmentId={v.appointment_id}
+                      onSave={(data)=>saveVisit(data,v.id)}
+                      onClose={()=>setExpandedForm(null)}/>
+                  </div>}
+                </div>
+              }
+            </Card>}
+          </div>;
         })}
       </div>
     )}
