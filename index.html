@@ -791,6 +791,292 @@ function TasksTab({tasks,doctors}){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// VISITS — модуль визитов
+// ══════════════════════════════════════════════════════════════════════════════
+
+const EXAM_SYSTEMS=[
+  {k:'skin',l:'Кожные покровы'},
+  {k:'lymph',l:'Лимфоузлы'},
+  {k:'chest',l:'Грудная клетка / Лёгкие'},
+  {k:'heart',l:'Сердечно-сосудистая'},
+  {k:'abdomen',l:'Живот / ЖКТ'},
+  {k:'neuro',l:'Нервная система'},
+  {k:'msk',l:'Опорно-двигательный'},
+  {k:'ent',l:'ЛОР'},
+  {k:'eyes',l:'Зрение'},
+  {k:'uro',l:'Мочеполовая'},
+];
+
+const VISIT_TYPES=['Первичный','Повторный','Консультация','Плановый','Экстренный'];
+const DIAG_TYPES=['Основной','Сопутствующий','Осложнение'];
+
+function VisitForm({visit,patient,doctor,onSave,onClose}){
+  const[tab,setTab]=useState('complaints');
+  const[form,setForm]=useState(visit||{
+    complaints:'',anamnesis:'',anamnesis_life:'',allergies:'',
+    general_condition:'',exam_systems:{},
+    diagnosis:'',diagnosis_code:'',diagnosis_type:'Основной',
+    prescription:'',procedures:'',referrals:'',
+    sick_leave:false,sick_leave_days:'',next_visit:'',
+    visit_type:'Первичный',files:[],status:'Черновик'
+  });
+  const[saving,setSaving]=useState(false);
+  const fileRef=useRef();
+
+  const set=k=>e=>setForm(f=>({...f,[k]:e.target.value}));
+  const setExam=(k,v)=>setForm(f=>({...f,exam_systems:{...f.exam_systems,[k]:v}}));
+
+  const handleFile=e=>{
+    const files=[...e.target.files];
+    files.forEach(f=>{
+      const r=new FileReader();
+      r.onload=ev=>setForm(prev=>({...prev,files:[...prev.files,{name:f.name,size:f.size,type:f.type,data:ev.target.result}]}));
+      r.readAsDataURL(f);
+    });
+  };
+
+  const save=async(status)=>{
+    setSaving(true);
+    const data={...form,status:status||form.status,
+      patient_id:patient?.id,patient_name:patient?.name,
+      doctor_id:doctor?.id,doctor_name:doctor?.name,
+      date:today()};
+    await onSave(data);
+    setSaving(false);
+  };
+
+  const TABS=[
+    {id:'complaints',l:'Жалобы'},
+    {id:'exam',l:'Осмотр'},
+    {id:'diagnosis',l:'Диагноз'},
+    {id:'treatment',l:'Лечение'},
+    {id:'files',l:'Файлы'},
+  ];
+
+  return <div style={{display:'flex',flexDirection:'column',gap:0,height:'100%'}}>
+    {/* Мини-табы */}
+    <div style={{display:'flex',gap:4,marginBottom:14,overflowX:'auto',paddingBottom:2}}>
+      {TABS.map(t=><div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'6px 14px',borderRadius:20,background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,fontSize:12,fontWeight:tab===t.id?600:400,color:tab===t.id?C.accent:C.muted,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{t.l}</div>)}
+    </div>
+
+    {/* Тип визита */}
+    <div style={{display:'flex',gap:6,marginBottom:12,overflowX:'auto'}}>
+      {VISIT_TYPES.map(t=><div key={t} onClick={()=>setForm(f=>({...f,visit_type:t}))} style={{padding:'4px 12px',borderRadius:20,background:form.visit_type===t?C.purple+'18':C.bg,border:`1.5px solid ${form.visit_type===t?C.purple:C.border}`,fontSize:11,fontWeight:600,color:form.visit_type===t?C.purple:C.muted,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{t}</div>)}
+    </div>
+
+    {/* Жалобы и анамнез */}
+    {tab==='complaints'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Жалобы *</div>
+        <textarea rows={3} placeholder="Опишите жалобы пациента..." value={form.complaints} onChange={set('complaints')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Анамнез заболевания</div>
+        <textarea rows={3} placeholder="История развития болезни..." value={form.anamnesis} onChange={set('anamnesis')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Анамнез жизни</div>
+        <textarea rows={2} placeholder="Перенесённые заболевания, операции, хронические..." value={form.anamnesis_life} onChange={set('anamnesis_life')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>⚠️ Аллергии</div>
+        <input placeholder="Нет / Пенициллин / Аспирин..." value={form.allergies} onChange={set('allergies')}/>
+      </div>
+    </div>}
+
+    {/* Осмотр */}
+    {tab==='exam'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Общее состояние</div>
+        <input placeholder="Удовлетворительное / Средней тяжести / Тяжёлое" value={form.general_condition} onChange={set('general_condition')}/>
+      </div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:600,letterSpacing:.5}}>ОСМОТР ПО СИСТЕМАМ</div>
+      {EXAM_SYSTEMS.map(s=><div key={s.k}>
+        <div style={{fontSize:12,color:C.muted,marginBottom:4}}>{s.l}</div>
+        <textarea rows={2} placeholder="Без особенностей..." value={form.exam_systems[s.k]||''} onChange={e=>setExam(s.k,e.target.value)} style={{resize:'vertical',fontSize:13}}/>
+      </div>)}
+    </div>}
+
+    {/* Диагноз */}
+    {tab==='diagnosis'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {DIAG_TYPES.map(t=><div key={t} onClick={()=>setForm(f=>({...f,diagnosis_type:t}))} style={{padding:'5px 14px',borderRadius:20,background:form.diagnosis_type===t?C.accent+'18':C.bg,border:`1.5px solid ${form.diagnosis_type===t?C.accent:C.border}`,fontSize:12,fontWeight:600,color:form.diagnosis_type===t?C.accent:C.muted,cursor:'pointer'}}>{t}</div>)}
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Диагноз *</div>
+        <textarea rows={3} placeholder="Клинический диагноз..." value={form.diagnosis} onChange={set('diagnosis')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Код МКБ-10</div>
+        <input placeholder="J06.9 / I10 / E11 ..." value={form.diagnosis_code} onChange={set('diagnosis_code')}/>
+      </div>
+    </div>}
+
+    {/* Лечение */}
+    {tab==='treatment'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Назначения / Рецепт</div>
+        <textarea rows={4} placeholder="Препараты, дозировки, курс лечения..." value={form.prescription} onChange={set('prescription')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Процедуры</div>
+        <textarea rows={2} placeholder="Физиотерапия, капельницы, инъекции..." value={form.procedures} onChange={set('procedures')} style={{resize:'vertical'}}/>
+      </div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Направления</div>
+        <input placeholder="К кардиологу, на МРТ, анализы..." value={form.referrals} onChange={set('referrals')}/>
+      </div>
+      <Card style={{padding:14}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:form.sick_leave?10:0}}>
+          <span style={{fontSize:13,fontWeight:500}}>Больничный лист</span>
+          <div onClick={()=>setForm(f=>({...f,sick_leave:!f.sick_leave}))} style={{width:44,height:24,borderRadius:12,background:form.sick_leave?C.accent:C.border,cursor:'pointer',position:'relative',transition:'background .2s'}}>
+            <div style={{position:'absolute',top:2,left:form.sick_leave?22:2,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left .2s',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
+          </div>
+        </div>
+        {form.sick_leave&&<input type="number" placeholder="Количество дней" value={form.sick_leave_days} onChange={set('sick_leave_days')} style={{marginTop:8}}/>}
+      </Card>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Следующий визит</div>
+        <input type="date" value={form.next_visit} onChange={set('next_visit')} min={today()}/>
+      </div>
+    </div>}
+
+    {/* Файлы */}
+    {tab==='files'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <button onClick={()=>fileRef.current.click()} style={{width:'100%',padding:'20px',border:`2px dashed ${C.border}`,borderRadius:14,background:C.bg,cursor:'pointer',color:C.muted,fontSize:13,display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
+        <span style={{fontSize:28}}>📎</span>
+        <span>Добавить файл или фото</span>
+        <span style={{fontSize:11}}>Анализы, снимки, документы</span>
+      </button>
+      <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{display:'none'}} onChange={handleFile}/>
+      {form.files.length===0?<div style={{textAlign:'center',color:C.muted,fontSize:13,padding:20}}>Файлы не прикреплены</div>:
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {form.files.map((f,i)=><Card key={i} style={{padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}>
+          <span style={{fontSize:22,flexShrink:0}}>{f.type?.startsWith('image')?'🖼️':'📄'}</span>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</div><div style={{fontSize:11,color:C.muted}}>{f.size?(f.size/1024).toFixed(1)+' KB':''}</div></div>
+          {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:48,height:48,objectFit:'cover',borderRadius:8,flexShrink:0}}/>}
+          <button onClick={()=>setForm(pf=>({...pf,files:pf.files.filter((_,j)=>j!==i)}))} style={{background:'none',color:C.red,fontSize:18,padding:0,flexShrink:0}}>×</button>
+        </Card>)}
+      </div>}
+    </div>}
+
+    {/* Кнопки */}
+    <div style={{display:'flex',gap:10,marginTop:16,paddingTop:12,borderTop:`1px solid ${C.border}`}}>
+      <Btn outline color={C.muted} onClick={()=>save('Черновик')} disabled={saving} small>💾 Черновик</Btn>
+      <Btn full onClick={()=>save('Завершён')} disabled={saving} color={C.green}>{saving?'Сохранение...':'✓ Завершить визит'}</Btn>
+    </div>
+  </div>;
+}
+
+function VisitsTab({user,patients,doctors,appts}){
+  const visits=useTable('clinic_visits','created_at',false);
+  const[selVisit,setSelVisit]=useState(null);
+  const[newVisit,setNewVisit]=useState(null); // {patient, doctor}
+  const[search,setSearch]=useState('');
+  const[filterStatus,setFilterStatus]=useState('all');
+  const[filterDoc,setFilterDoc]=useState('');
+  const[screen,setScreen]=useState('list'); // list | form | view
+
+  // Для роли доктора — только свои пациенты
+  const myDoctor=user?.role==='doctor'?doctors.data.find(d=>d.id===user.doctor_id):null;
+
+  const filtered=React.useMemo(()=>visits.data.filter(v=>{
+    if(myDoctor&&v.doctor_id!==myDoctor.id)return false;
+    if(search&&!v.patient_name?.toLowerCase().includes(search.toLowerCase())&&!v.doctor_name?.toLowerCase().includes(search.toLowerCase()))return false;
+    if(filterStatus!=='all'&&v.status!==filterStatus)return false;
+    if(filterDoc&&String(v.doctor_id)!==String(filterDoc))return false;
+    return true;
+  }),[visits.data,search,filterStatus,filterDoc,myDoctor]);
+
+  const openNew=(patient,doctor)=>{
+    setNewVisit({patient,doctor:doctor||myDoctor||doctors.data[0]});
+    setSelVisit(null);
+    setScreen('form');
+  };
+
+  const saveVisit=async(data)=>{
+    if(selVisit){await visits.update(selVisit.id,data);setSelVisit({...selVisit,...data});}
+    else{const ins=await visits.insert(data);setSelVisit(ins);}
+    setScreen('view');
+  };
+
+  const STATUS_V={'Черновик':C.orange,'Завершён':C.green,'Отменён':C.red};
+
+  // Экран просмотра визита
+  if(screen==='view'&&selVisit) return <div>
+    <button onClick={()=>setScreen('list')} style={{background:'none',border:'none',color:C.accent,fontWeight:600,fontSize:14,cursor:'pointer',padding:'0 0 12px',display:'flex',alignItems:'center',gap:4}}>← Все визиты</button>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <div>
+        <div style={{fontWeight:700,fontSize:17,color:C.text}}>{selVisit.patient_name}</div>
+        <div style={{color:C.muted,fontSize:12,marginTop:2}}>{selVisit.doctor_name} · {selVisit.date} · <Badge text={selVisit.status} color={STATUS_V[selVisit.status]||C.muted}/></div>
+      </div>
+      <Btn small outline color={C.accent} onClick={()=>setScreen('form')}>✏️ Редактировать</Btn>
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {selVisit.visit_type&&<div style={{display:'inline-block',background:C.purple+'18',color:C.purple,borderRadius:20,padding:'3px 12px',fontSize:12,fontWeight:600}}>{selVisit.visit_type}</div>}
+      {selVisit.complaints&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ЖАЛОБЫ</div><div style={{fontSize:13,lineHeight:1.6}}>{selVisit.complaints}</div></Card>}
+      {selVisit.anamnesis&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>АНАМНЕЗ</div><div style={{fontSize:13,lineHeight:1.6}}>{selVisit.anamnesis}</div></Card>}
+      {selVisit.general_condition&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ОБЩЕЕ СОСТОЯНИЕ</div><div style={{fontSize:13}}>{selVisit.general_condition}</div></Card>}
+      {selVisit.exam_systems&&Object.keys(selVisit.exam_systems).filter(k=>selVisit.exam_systems[k]).length>0&&
+        <Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:8}}>ОСМОТР ПО СИСТЕМАМ</div>
+          {EXAM_SYSTEMS.filter(s=>selVisit.exam_systems[s.k]).map(s=><div key={s.k} style={{marginBottom:8}}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{s.l}</div><div style={{fontSize:13}}>{selVisit.exam_systems[s.k]}</div></div>)}
+        </Card>}
+      {selVisit.diagnosis&&<Card style={{padding:14,borderLeft:`4px solid ${C.red}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ДИАГНОЗ {selVisit.diagnosis_code&&<span style={{color:C.accent,marginLeft:6}}>{selVisit.diagnosis_code}</span>}</div><div style={{fontSize:14,fontWeight:600,color:C.text}}>{selVisit.diagnosis}</div>{selVisit.diagnosis_type&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>{selVisit.diagnosis_type}</div>}</Card>}
+      {selVisit.prescription&&<Card style={{padding:14,borderLeft:`4px solid ${C.green}`}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>НАЗНАЧЕНИЯ</div><div style={{fontSize:13,lineHeight:1.7,whiteSpace:'pre-wrap'}}>{selVisit.prescription}</div></Card>}
+      {selVisit.procedures&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ПРОЦЕДУРЫ</div><div style={{fontSize:13}}>{selVisit.procedures}</div></Card>}
+      {selVisit.referrals&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>НАПРАВЛЕНИЯ</div><div style={{fontSize:13}}>{selVisit.referrals}</div></Card>}
+      {selVisit.sick_leave&&<Card style={{padding:14,borderLeft:`4px solid ${C.orange}`}}><div style={{fontSize:13,fontWeight:600}}>🏥 Больничный лист{selVisit.sick_leave_days?` — ${selVisit.sick_leave_days} дней`:''}</div></Card>}
+      {selVisit.next_visit&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Следующий визит</div><div style={{fontSize:14,fontWeight:600,color:C.accent}}>{selVisit.next_visit}</div></Card>}
+      {selVisit.files?.length>0&&<Card style={{padding:14}}><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:8}}>ФАЙЛЫ ({selVisit.files.length})</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {selVisit.files.map((f,i)=><div key={i} style={{display:'flex',gap:10,alignItems:'center'}}>
+            <span style={{fontSize:18}}>{f.type?.startsWith('image')?'🖼️':'📄'}</span>
+            <span style={{flex:1,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+            {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:48,height:48,objectFit:'cover',borderRadius:8}}/>}
+          </div>)}
+        </div>
+      </Card>}
+    </div>
+  </div>;
+
+  // Экран формы визита
+  if(screen==='form') return <div>
+    <button onClick={()=>setScreen(selVisit?'view':'list')} style={{background:'none',border:'none',color:C.accent,fontWeight:600,fontSize:14,cursor:'pointer',padding:'0 0 12px',display:'flex',alignItems:'center',gap:4}}>← Назад</button>
+    <div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:4}}>{selVisit?'Редактировать визит':'Новый визит'}</div>
+    {(newVisit||selVisit)&&<div style={{display:'flex',gap:10,alignItems:'center',background:C.bg,borderRadius:12,padding:'10px 14px',marginBottom:14,border:`1px solid ${C.border}`}}>
+      <span style={{fontSize:18}}>👤</span>
+      <div><div style={{fontWeight:600,fontSize:14}}>{newVisit?.patient?.name||selVisit?.patient_name}</div><div style={{fontSize:12,color:C.muted}}>{newVisit?.doctor?.name||selVisit?.doctor_name}</div></div>
+    </div>}
+    <VisitForm visit={selVisit} patient={newVisit?.patient||{id:selVisit?.patient_id,name:selVisit?.patient_name}} doctor={newVisit?.doctor||{id:selVisit?.doctor_id,name:selVisit?.doctor_name}} onSave={saveVisit} onClose={()=>setScreen(selVisit?'view':'list')}/>
+  </div>;
+
+  // Список визитов
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <span style={{fontWeight:700,fontSize:16,color:C.text}}>Визиты ({filtered.length})</span>
+      <Btn small onClick={()=>{setSelVisit(null);setNewVisit({patient:null,doctor:myDoctor||doctors.data[0]});setScreen('form');}}>+ Визит</Btn>
+    </div>
+
+    <input placeholder="🔍 Поиск по пациенту или врачу..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:10}}/>
+
+    <div style={{display:'flex',gap:8,marginBottom:12,overflowX:'auto'}}>
+      {['all','Черновик','Завершён'].map(s=><div key={s} onClick={()=>setFilterStatus(s)} style={{background:filterStatus===s?C.accent+'18':C.card,border:`1.5px solid ${filterStatus===s?C.accent:C.border}`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:filterStatus===s?C.accent:C.muted,fontWeight:600,flexShrink:0}}>{s==='all'?'Все':s}</div>)}
+      {user?.role!=='doctor'&&<select value={filterDoc} onChange={e=>setFilterDoc(e.target.value)} style={{marginLeft:'auto',width:'auto',minWidth:140,fontSize:12,padding:'5px 10px',height:34}}>
+        <option value="">Все врачи</option>
+        {doctors.data.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>}
+    </div>
+
+    {visits.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:50}}>
+      <div style={{fontSize:40,marginBottom:12}}>📋</div>
+      <div>Визитов нет</div>
+    </div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(v=><Card key={v.id} onClick={()=>{setSelVisit(v);setScreen('view');}} style={{padding:'14px 16px',cursor:'pointer',borderLeft:`4px solid ${STATUS_V[v.status]||C.muted}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+            <div style={{fontWeight:700,fontSize:15,color:C.text}}>{v.patient_name}</div>
+            <Badge text={v.status} color={STATUS_V[v.status]||C.muted}/>
+          </div>
+          <div style={{color:C.muted,fontSize:12}}>{v.doctor_name} · {v.date}</div>
+          {v.visit_type&&<div style={{display:'inline-block',background:C.purple+'12',color:C.purple,borderRadius:10,padding:'2px 8px',fontSize:11,fontWeight:600,marginTop:6}}>{v.visit_type}</div>}
+          {v.diagnosis&&<div style={{fontSize:12,color:C.accent,marginTop:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Dx: {v.diagnosis}</div>}
+          {v.files?.length>0&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>📎 {v.files.length} файл(ов)</div>}
+        </Card>)}
+      </div>
+    )}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SPECIALTIES (справочник специализаций)
 // ══════════════════════════════════════════════════════════════════════════════
 function SpecialtiesTab({specialties,setSpecialties,doctors}){
@@ -905,6 +1191,7 @@ const TABS=[
   {id:'reception',icon:'🏥',label:'Ресепшн'},
   {id:'schedule', icon:'📅',label:'Расписание'},
   {id:'patients', icon:'👤',label:'Пациенты'},
+  {id:'visits',   icon:'📋',label:'Визиты'},
   {id:'doctors',  icon:'👨‍⚕️',label:'Врачи'},
   {id:'finances', icon:'💰',label:'Финансы'},
   {id:'tasks',    icon:'✅',label:'Задачи'},
@@ -913,9 +1200,9 @@ const TABS=[
 ];
 
 const ROLE_TABS={
-  admin:   ['dashboard','reception','schedule','patients','doctors','finances','tasks','specialties','users'],
-  reception:['reception','schedule','patients','finances'],
-  doctor:  ['schedule','patients'],
+  admin:   ['dashboard','reception','schedule','patients','visits','doctors','finances','tasks','specialties','users'],
+  reception:['reception','schedule','patients','visits','finances'],
+  doctor:  ['schedule','patients','visits'],
   accountant:['finances','dashboard'],
 };
 
@@ -967,6 +1254,7 @@ function App({user,onLogout}){
         {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
         {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
         {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
+        {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts}/>}
         {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
         {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
         {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
