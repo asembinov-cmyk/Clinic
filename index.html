@@ -1002,6 +1002,8 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
   const[search,setSearch]=useState('');
   const[filterStatus,setFilterStatus]=useState('all');
   const[filterDoc,setFilterDoc]=useState('');
+  const[dateFrom,setDateFrom]=useState('');
+  const[dateTo,setDateTo]=useState('');
 
   const myDoctor=user?.role==='doctor'?doctors.data.find(d=>String(d.id)===String(user.doctor_id)):null;
 
@@ -1036,13 +1038,15 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
     if(myDoctor&&String(v.doctor_id)!==String(myDoctor.id))return false;
     if(search&&!v.patient_name?.toLowerCase().includes(search.toLowerCase())&&!v.doctor_name?.toLowerCase().includes(search.toLowerCase()))return false;
     if(filterDoc&&String(v.doctor_id)!==String(filterDoc))return false;
+    if(dateFrom&&v.date&&v.date<dateFrom)return false;
+    if(dateTo&&v.date&&v.date>dateTo)return false;
     if(filterStatus!=='all'){
       if(filterStatus==='С визитом'&&v._type!=='visit')return false;
       if(filterStatus==='Без визита'&&v._type!=='appt')return false;
       if(filterStatus==='Завершён'&&v.status!=='Завершён')return false;
     }
     return true;
-  }),[combined,search,filterStatus,filterDoc,myDoctor]);
+  }),[combined,search,filterStatus,filterDoc,dateFrom,dateTo,myDoctor]);
 
   const saveVisit=async(data,itemId)=>{
     const existing=visits.data.find(v=>v.appointment_id===data.appointment_id||v.id===itemId);
@@ -1079,6 +1083,17 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
     </div>
 
     <input placeholder="🔍 Поиск по пациенту или врачу..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:10}}/>
+
+    {/* Фильтр по датам */}
+    <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center'}}>
+      <div style={{fontSize:12,color:C.muted,fontWeight:500,flexShrink:0}}>Период:</div>
+      <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{flex:1,height:34,fontSize:12,padding:'0 10px'}}/>
+      <span style={{color:C.muted,fontSize:12,flexShrink:0}}>—</span>
+      <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{flex:1,height:34,fontSize:12,padding:'0 10px'}}/>
+      {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom('');setDateTo('');}} style={{background:C.red+'18',border:`1px solid ${C.red}33`,color:C.red,borderRadius:8,padding:'4px 10px',fontSize:12,cursor:'pointer',flexShrink:0,fontWeight:600}}>×</button>}
+      <button onClick={()=>{const d=new Date();setDateFrom(d.toISOString().split('T')[0]);setDateTo(d.toISOString().split('T')[0]);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,color:C.accent,borderRadius:8,padding:'4px 10px',fontSize:11,cursor:'pointer',flexShrink:0,fontWeight:600,whiteSpace:'nowrap'}}>Сегодня</button>
+      <button onClick={()=>{const d=new Date();const from=new Date(d);from.setDate(d.getDate()-6);setDateFrom(from.toISOString().split('T')[0]);setDateTo(d.toISOString().split('T')[0]);}} style={{background:C.purple+'18',border:`1px solid ${C.purple}33`,color:C.purple,borderRadius:8,padding:'4px 10px',fontSize:11,cursor:'pointer',flexShrink:0,fontWeight:600,whiteSpace:'nowrap'}}>7 дней</button>
+    </div>
 
     <div style={{display:'flex',gap:8,marginBottom:12,overflowX:'auto'}}>
       {[{id:'all',l:'Все'},{id:'С визитом',l:'Заполнен'},{id:'Без визита',l:'Без осмотра'},{id:'Завершён',l:'Завершён'}].map(s=>
