@@ -83,15 +83,15 @@ function Card({children,style={},onClick}){
 }
 
 // ── Supabase hook ─────────────────────────────────────────────────────────────
-function useTable(table,orderCol='created_at',orderAsc=false){
+function useTable(table,orderCol='created_at',orderAsc=false,fields='*'){
   const[data,setData]=useState([]);const[loading,setLoading]=useState(true);
   const load=useCallback(async()=>{
     setLoading(true);
-    const{data:rows,error}=await db.from(table).select('*').order(orderCol,{ascending:orderAsc});
+    const{data:rows,error}=await db.from(table).select(fields).order(orderCol,{ascending:orderAsc});
     if(error)console.error('useTable error',table,error.message);
     setData(rows||[]);
     setLoading(false);
-  },[table]);
+  },[table,fields]);
   useEffect(()=>{load();},[load]);
   const insert=async row=>{const{data:ins,error}=await db.from(table).insert(row).select().single();if(error)console.error('insert error',table,error);setData(p=>[...(p||[]),ins].filter(Boolean));return ins;};
   const update=async(id,ch)=>{await db.from(table).update(ch).eq('id',id);setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));};
@@ -1370,7 +1370,7 @@ function App({user,onLogout}){
   const allowedTabs=ROLE_TABS[user?.role]||['reception'];
   const[tab,setTab]=useState(allowedTabs[0]);
   const[sideOpen,setSideOpen]=useState(false);
-  const doctors=useTable('clinic_doctors','id',true);
+  const doctors=useTable('clinic_doctors','id',true,'id,name,specialty,phone,description,color,work_start,work_end,active,created_at');
   const patients=useTable('clinic_patients','created_at',false);
   const appts=useTable('clinic_appointments','created_at',false);
   const payments=useTable('clinic_payments','created_at',false);
