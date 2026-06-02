@@ -1316,79 +1316,111 @@ function App({user,onLogout}){
   const todayCnt=appts.data.filter(a=>a.date===today()).length;
   const overdueCnt=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<today()).length;
 
+  const SidebarContent=()=><>
+    {/* Logo */}
+    <div style={{padding:'22px 20px 16px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div>
+          <div style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:2,fontFamily:'DM Sans,Arial,sans-serif'}}>LUCEM</div>
+          <div style={{color:'rgba(255,255,255,.5)',fontSize:10,letterSpacing:1.5,marginTop:1}}>MEDICAL CLINIC</div>
+        </div>
+        <button className="mobile-only" onClick={()=>setSideOpen(false)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'rgba(255,255,255,.7)',borderRadius:8,width:28,height:28,fontSize:16,cursor:'pointer',lineHeight:1}}>×</button>
+      </div>
+      <div style={{background:'rgba(255,255,255,.1)',borderRadius:10,padding:'10px 12px'}}>
+        <div style={{color:'#fff',fontWeight:600,fontSize:13}}>{user?.name}</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>{({admin:'Администратор',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</div>
+      </div>
+    </div>
+    {/* Nav */}
+    <div style={{flex:1,overflowY:'auto',padding:'10px 10px'}}>
+      {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setSideOpen(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:tab===t.id?'rgba(255,255,255,.18)':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',transition:'background .15s'}}>
+        <span style={{fontSize:18,width:24,textAlign:'center'}}>{t.icon}</span>
+        <span style={{fontSize:14,fontWeight:tab===t.id?600:400,color:tab===t.id?'#fff':'rgba(255,255,255,.6)'}}>{t.label}</span>
+        {tab===t.id&&<div style={{marginLeft:'auto',width:5,height:5,borderRadius:'50%',background:'#fff'}}/>}
+      </button>)}
+    </div>
+    {/* Badges + Logout */}
+    <div style={{padding:'12px 16px',borderTop:'1px solid rgba(255,255,255,.1)'}}>
+      <div style={{display:'flex',gap:8,marginBottom:10}}>
+        {overdueCnt>0&&<div style={{background:'rgba(239,68,68,.25)',borderRadius:20,padding:'3px 10px',fontSize:11,color:'#fca5a5',fontWeight:600}}>⚠ {overdueCnt}</div>}
+        <div style={{background:'rgba(255,255,255,.12)',borderRadius:20,padding:'3px 10px',fontSize:11,color:'rgba(255,255,255,.8)',fontWeight:600}}>{todayCnt} сегодня</div>
+      </div>
+      <button onClick={onLogout} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:10,background:'rgba(255,255,255,.08)',border:'none',cursor:'pointer',color:'rgba(255,255,255,.6)'}}>
+        <span style={{fontSize:16}}>🚪</span><span style={{fontSize:13,fontWeight:500}}>Выйти</span>
+      </button>
+    </div>
+  </>;
+
+  const tabContent=<>
+    {tab==='dashboard'&&<DashboardTab patients={patients} appts={appts} payments={payments} doctors={doctors} tasks={tasks}/>}
+    {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
+    {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
+    {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
+    {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts}/>}
+    {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
+    {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
+    {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
+    {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
+    {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
+  </>;
+
   return <>
-    <style>{gcss}</style>
-    <div style={{minHeight:'100vh',background:C.bg,paddingBottom:0}}>
-      <div style={{padding:'12px 16px 10px',borderBottom:`1px solid ${C.border}`,background:'#4a1b6d',position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 12px rgba(74,27,109,.3)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
+    <style>{gcss+`
+      .desktop-sidebar{display:flex;}
+      .mobile-header{display:none;}
+      .mobile-only{display:none;}
+      @media(max-width:768px){
+        .desktop-sidebar{display:none!important;}
+        .mobile-header{display:flex!important;}
+        .mobile-only{display:block!important;}
+        .desktop-layout{flex-direction:column!important;}
+        .content-area{padding:12px!important;max-width:100%!important;}
+      }
+    `}</style>
+
+    {/* ── DESKTOP LAYOUT ── */}
+    <div className="desktop-layout" style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+
+      {/* Постоянный сайдбар (десктоп) */}
+      <div className="desktop-sidebar" style={{width:240,minWidth:240,background:'#4a1b6d',flexDirection:'column',position:'sticky',top:0,height:'100vh',overflowY:'auto',flexShrink:0}}>
+        <SidebarContent/>
+      </div>
+
+      {/* Основной контент */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
+
+        {/* Мобильный хедер */}
+        <div className="mobile-header" style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,background:'#4a1b6d',position:'sticky',top:0,zIndex:50,alignItems:'center',gap:10,display:'none'}}>
           <button onClick={()=>setSideOpen(true)} style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:10,width:36,height:36,fontSize:18,color:'#fff',cursor:'pointer',flexShrink:0}}>☰</button>
-          <div style={{flex:1}}>
-            <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:18,color:'#fff',letterSpacing:1}}>LUCEM</span>
-            <span style={{color:'rgba(255,255,255,.5)',fontSize:10,marginLeft:6,letterSpacing:.5}}>MEDICAL CLINIC</span>
-            <span style={{color:'rgba(255,255,255,.4)',fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span>
-          </div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            {overdueCnt>0&&<div style={{background:'rgba(239,68,68,.3)',border:'1px solid rgba(239,68,68,.5)',borderRadius:20,padding:'2px 8px',fontSize:11,color:'#fca5a5',fontWeight:600}}>⚠{overdueCnt}</div>}
-            <div style={{background:'rgba(255,255,255,.15)',border:'1px solid rgba(255,255,255,.2)',borderRadius:20,padding:'2px 10px',fontSize:11,color:'rgba(255,255,255,.9)',fontWeight:600}}>{todayCnt} сегодня</div>
-          </div>
+          <span style={{fontWeight:800,fontSize:18,color:'#fff',letterSpacing:1}}>LUCEM</span>
+          <span style={{color:'rgba(255,255,255,.5)',fontSize:10,marginLeft:4}}>MEDICAL CLINIC</span>
+          <span style={{color:'rgba(255,255,255,.4)',fontSize:11,marginLeft:6}}>· {TABS.find(t=>t.id===tab)?.label}</span>
         </div>
-        <div style={{marginTop:6,paddingLeft:46,fontSize:11,color:'rgba(255,255,255,.5)'}}>
-          👤 {user?.name} <span style={{background:'rgba(255,255,255,.15)',color:'rgba(255,255,255,.9)',borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:600,marginLeft:4}}>{({admin:'Админ',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</span>
-        </div>
-      </div>
 
-      <div style={{padding:16}}>
-        {tab==='dashboard'&&<DashboardTab patients={patients} appts={appts} payments={payments} doctors={doctors} tasks={tasks}/>}
-        {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
-        {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
-        {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
-        {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts}/>}
-        {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
-        {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
-        {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
-        {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
-        {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
-      </div>
-    </div>
-
-    {/* Sidebar */}
-    <div style={{position:'fixed',top:0,left:sideOpen?0:-260,width:260,height:'100vh',background:'#4a1b6d',borderRight:'none',zIndex:100,boxShadow:'4px 0 24px rgba(74,27,109,.4)',transition:'left .25s ease',display:'flex',flexDirection:'column'}}>
-      {/* Logo */}
-      <div style={{padding:'20px 20px 16px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        {/* Десктопный топбар */}
+        <div style={{padding:'14px 28px 12px',borderBottom:`1px solid ${C.border}`,background:C.card,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexShrink:0}}>
           <div>
-            <div style={{color:'#fff',fontWeight:800,fontSize:18,letterSpacing:2,fontFamily:'DM Sans,Arial,sans-serif'}}>LUCEM</div>
-            <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:1,marginTop:1}}>MEDICAL CLINIC</div>
+            <span style={{fontWeight:700,fontSize:20,color:'#4a1b6d'}}>{TABS.find(t=>t.id===tab)?.icon} {TABS.find(t=>t.id===tab)?.label}</span>
           </div>
-          <button onClick={()=>setSideOpen(false)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'rgba(255,255,255,.7)',borderRadius:8,width:28,height:28,fontSize:16,cursor:'pointer',lineHeight:1}}>×</button>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            {overdueCnt>0&&<div style={{background:C.red+'18',border:`1px solid ${C.red}33`,borderRadius:20,padding:'4px 12px',fontSize:12,color:C.red,fontWeight:600}}>⚠ {overdueCnt} просрочено</div>}
+            <div style={{background:'#4a1b6d18',border:'1px solid #4a1b6d33',borderRadius:20,padding:'4px 14px',fontSize:12,color:'#4a1b6d',fontWeight:600}}>📅 {todayCnt} сегодня</div>
+            <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:'6px 14px',fontSize:12,color:C.muted}}>👤 {user?.name}</div>
+          </div>
         </div>
-        {/* User card */}
-        <div style={{background:'rgba(255,255,255,.1)',borderRadius:10,padding:'10px 12px'}}>
-          <div style={{color:'#fff',fontWeight:600,fontSize:13}}>{user?.name}</div>
-          <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>{({admin:'Администратор',reception:'Ресепшн',doctor:'Врач',accountant:'Бухгалтер'})[user?.role]||user?.role}</div>
+
+        {/* Контент */}
+        <div className="content-area" style={{flex:1,padding:'24px 28px',maxWidth:1200,width:'100%',margin:'0 auto',boxSizing:'border-box'}}>
+          {tabContent}
         </div>
-      </div>
-
-      {/* Nav items */}
-      <div style={{flex:1,overflowY:'auto',padding:'10px 10px'}}>
-        {TABS.filter(t=>allowedTabs.includes(t.id)).map(t=><button key={t.id} onClick={()=>{setTab(t.id);setSideOpen(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:tab===t.id?'rgba(255,255,255,.15)':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',transition:'background .15s'}}>
-          <span style={{fontSize:18,width:24,textAlign:'center'}}>{t.icon}</span>
-          <span style={{fontSize:14,fontWeight:tab===t.id?600:400,color:tab===t.id?'#fff':'rgba(255,255,255,.6)'}}>{t.label}</span>
-          {tab===t.id&&<div style={{marginLeft:'auto',width:4,height:4,borderRadius:'50%',background:'#fff'}}/>}
-        </button>)}
-      </div>
-
-      {/* Logout */}
-      <div style={{padding:'12px 10px',borderTop:'1px solid rgba(255,255,255,.1)'}}>
-        <button onClick={onLogout} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,background:'rgba(255,255,255,.08)',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)'}}>
-          <span style={{fontSize:18}}>🚪</span>
-          <span style={{fontSize:14,fontWeight:500}}>Выйти</span>
-        </button>
       </div>
     </div>
 
-    {/* Overlay */}
-    {sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:99}}/>}
+    {/* Мобильный sliding sidebar */}
+    <div style={{position:'fixed',top:0,left:sideOpen?0:-260,width:260,height:'100vh',background:'#4a1b6d',zIndex:200,boxShadow:'4px 0 24px rgba(74,27,109,.4)',transition:'left .25s ease',display:'flex',flexDirection:'column'}}>
+      <SidebarContent/>
+    </div>
+    {sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:199}}/>}
   </>;
 }
 
