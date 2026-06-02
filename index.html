@@ -1362,6 +1362,7 @@ function App({user,onLogout}){
     setPendingVisitAppt(appt);
     setTab('visits');
   };
+  const todayCnt=appts.data.filter(a=>a.date===today()).length;
   const overdueCnt=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<today()).length;
 
   const SidebarContent=()=><>
