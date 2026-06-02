@@ -614,12 +614,16 @@ function DoctorsTab({doctors,specialties}){
   const[specFilters,setSpecFilters]=useState([]);
   const[dropOpen,setDropOpen]=useState(false);
 
-  const allSpecs=React.useMemo(()=>[...new Set(doctors.data.map(d=>d.specialty).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru')),[doctors.data]);
+  // Специализации из справочника + из врачей (объединяем)
+  const allSpecs=React.useMemo(()=>{
+    const fromDoctors=[...new Set(doctors.data.map(d=>d.specialty).filter(Boolean))];
+    const fromRef=(specialties||[]).map(s=>s.name);
+    return [...new Set([...fromRef,...fromDoctors])].sort((a,b)=>a.localeCompare(b,'ru'));
+  },[doctors.data,specialties]);
 
   const toggleSpec=s=>setSpecFilters(prev=>prev.includes(s)?prev.filter(x=>x!==s):[...prev,s]);
   const clearFilters=()=>setSpecFilters([]);
 
-  // Закрыть дропдаун при клике вне
   useEffect(()=>{
     if(!dropOpen) return;
     const handler=e=>{if(!e.target.closest('[data-specdrop]'))setDropOpen(false);};
@@ -629,7 +633,10 @@ function DoctorsTab({doctors,specialties}){
 
   const filtered=doctors.data.filter(d=>{
     const matchSearch=!search||d.name.toLowerCase().includes(search.toLowerCase());
-    const matchSpec=specFilters.length===0||specFilters.includes(d.specialty);
+    if(specFilters.length===0)return matchSearch;
+    // Проверяем каждую специализацию через запятую
+    const docSpecs=(d.specialty||'').split(',').map(s=>s.trim());
+    const matchSpec=specFilters.some(f=>docSpecs.some(ds=>ds.toLowerCase().includes(f.toLowerCase())));
     return matchSearch&&matchSpec;
   });
   const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);};
@@ -692,7 +699,8 @@ function DoctorsTab({doctors,specialties}){
     {doctors.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>
       <div style={{fontSize:36,marginBottom:8}}>🔍</div>
       <div>Врачи не найдены</div>
-      <div style={{fontSize:12,marginTop:6}}><button onClick={()=>{setSearch('');clearFilters();}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',textDecoration:'underline'}}>Сбросить фильтры</button></div>
+      {(search||specFilters.length>0)&&<div style={{fontSize:12,marginTop:6}}><button onClick={()=>{setSearch('');clearFilters();setDropOpen(false);}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',textDecoration:'underline',fontSize:13}}>Сбросить фильтры</button></div>}
+      {!search&&specFilters.length===0&&doctors.data.length===0&&<div style={{fontSize:12,color:C.muted,marginTop:6}}>Добавьте первого врача</div>}
     </div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {filtered.map(d=><Card key={d.id} style={{padding:'14px 16px',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
