@@ -52,13 +52,13 @@ const Badge=({text,color})=><span style={{background:color+'18',color,border:`1p
 const Spinner=()=><div style={{display:'flex',justifyContent:'center',padding:40}}><div style={{width:28,height:28,border:`3px solid #e2e8f0`,borderTopColor:C.accent,borderRadius:'50%',animation:'spin .8s linear infinite'}}/></div>;
 const Row=({label,value})=><div style={{display:'flex',justifyContent:'space-between',marginBottom:8,alignItems:'flex-start'}}><span style={{color:C.muted,fontSize:13,flexShrink:0,marginRight:8}}>{label}</span><span style={{fontSize:13,textAlign:'right'}}>{value}</span></div>;
 const MiniBar=({value,max,color})=>{const p=max?Math.min(100,Math.round(value/max*100)):0;return <div style={{background:'#e2e8f0',borderRadius:4,height:6}}><div style={{width:`${p}%`,height:'100%',background:color,borderRadius:4,transition:'width .4s'}}/></div>;};
-const SecTitle=({children})=><div style={{fontFamily:'Syne',fontWeight:700,fontSize:12,color:C.muted,letterSpacing:.8,textTransform:'uppercase',marginBottom:10}}>{children}</div>;
+const SecTitle=({children})=><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:12,color:C.muted,letterSpacing:.8,textTransform:'uppercase',marginBottom:10}}>{children}</div>;
 
 function Modal({title,onClose,children}){
   return <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.5)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={onClose}>
     <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 -8px 40px rgba(0,0,0,.15)',animation:'slideUp .22s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <span style={{fontFamily:'Syne',fontWeight:700,fontSize:18,color:C.text}}>{title}</span>
+        <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:18,color:C.text}}>{title}</span>
         <button onClick={onClose} style={{background:C.card2,color:C.muted,borderRadius:'50%',width:32,height:32,fontSize:20,lineHeight:'32px',textAlign:'center',border:`1px solid ${C.border}`}}>×</button>
       </div>
       {children}
@@ -118,7 +118,7 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
     </Card>}
 
     <div style={{background:`linear-gradient(135deg,${C.accent},${C.purple})`,borderRadius:18,padding:'18px 18px'}}>
-      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:'#fff',marginBottom:12}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
+      <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:'#fff',marginBottom:12}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
       <div style={{display:'flex',gap:8}}>
         {[
           {l:'Приёмов',v:todayApps.length,icon:'📋'},
@@ -158,7 +158,7 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
       <SecTitle>Воронка пациентов</SecTitle>
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {funnel.map(f=><div key={f.l}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:13}}>{f.l}</span><span style={{fontFamily:'Syne',fontWeight:700,color:f.c,fontSize:14}}>{f.v}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:13}}>{f.l}</span><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,color:f.c,fontSize:14}}>{f.v}</span></div>
           <MiniBar value={f.v} max={funnel[0].v||1} color={f.c}/>
         </div>)}
       </div>
@@ -167,8 +167,8 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
     <div style={{display:'flex',gap:10}}>
       {[{l:'Пациентов',v:patients.data.length,c:C.accent},{l:'Врачей',v:doctors.data.length,c:C.green},{l:'Задач',v:tasks.data.filter(t=>!t.done).length,c:C.orange}].map(({l,v,c})=>(
         <Card key={l} style={{flex:1,padding:'14px 8px',textAlign:'center'}}>
-          <div style={{color:C.muted,fontSize:10}}>{l}</div>
-          <div style={{fontFamily:'Syne',fontWeight:800,fontSize:24,color:c,marginTop:4}}>{v}</div>
+          <div style={{color:C.muted,fontSize:11,marginBottom:6}}>{l}</div>
+          <div style={{fontWeight:800,fontSize:28,color:c,fontFamily:'Arial,sans-serif',lineHeight:1}}>{v}</div>
         </Card>
       ))}
     </div>
@@ -197,7 +197,7 @@ function ReceptionTab({appts,patients,doctors}){
     <div style={{display:'flex',gap:8,marginBottom:14}}>
       {[{l:'Всего',v:stats.total,c:C.accent},{l:'Пришли',v:stats.came,c:C.green},{l:'Ждут',v:stats.waiting,c:C.orange},{l:'Отмена',v:stats.cancelled,c:C.red}].map(({l,v,c})=>(
         <Card key={l} style={{flex:1,padding:'8px 6px',textAlign:'center',borderTop:`3px solid ${c}`}}>
-          <div style={{fontFamily:'Syne',fontWeight:800,fontSize:18,color:c}}>{v}</div>
+          <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:18,color:c}}>{v}</div>
           <div style={{color:C.muted,fontSize:10}}>{l}</div>
         </Card>
       ))}
@@ -208,7 +208,7 @@ function ReceptionTab({appts,patients,doctors}){
           <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
             {doc&&<DoctorAvatar doctor={doc} size={36}/>}
             <div style={{flex:1}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'Syne',fontWeight:700,color:C.text}}>{a.time} {a.patient_name}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,color:C.text}}>{a.time} {a.patient_name}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
               <div style={{color:C.muted,fontSize:12,marginTop:3}}>{a.doctor_name||'—'}{a.service?` · ${a.service}`:''}</div>
             </div>
           </div>
@@ -278,7 +278,7 @@ function ScheduleTab({appts,patients,doctors}){
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {dayApps.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Записей нет</div>:
         [...dayApps].sort((a,b)=>a.time.localeCompare(b.time)).map(a=><Card key={a.id} style={{padding:'12px 14px',borderLeft:`4px solid ${STATUS_C[a.status]||C.muted}`}}>
-          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'Syne',fontWeight:700}}>{a.time} — {a.patient_name}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700}}>{a.time} — {a.patient_name}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
           {(a.doctor_name||a.service)&&<div style={{color:C.muted,fontSize:12,marginTop:4}}>{a.doctor_name}{a.service?` · ${a.service}`:''}</div>}
           <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
             {a.status==='Запланирован'&&<Btn small color={C.green} onClick={()=>updStatus(a.id,'Пришёл')}>✓ Пришёл</Btn>}
@@ -296,7 +296,7 @@ function ScheduleTab({appts,patients,doctors}){
           {visDocs.map(doc=><div key={doc.id} style={{flex:1,minWidth:150,marginRight:8}}>
             <div style={{height:50,display:'flex',alignItems:'center',gap:8,paddingBottom:6}}>
               <DoctorAvatar doctor={doc} size={28}/>
-              <div><div style={{fontFamily:'Syne',fontWeight:600,fontSize:12,color:doc.color}}>{doc.name.split(' ')[0]}</div>{doc.specialty&&<div style={{fontSize:10,color:C.muted}}>{doc.specialty}</div>}</div>
+              <div><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,fontSize:12,color:doc.color}}>{doc.name.split(' ')[0]}</div>{doc.specialty&&<div style={{fontSize:10,color:C.muted}}>{doc.specialty}</div>}</div>
             </div>
             {tSlots.map(t=>{const apps=appsFor(doc.id,t);const inW=t>=(doc.work_start||'08:00')&&t<(doc.work_end||'18:00');return<div key={t} onClick={()=>apps.length===0?(()=>{setForm({patient_name:'',doctor_id:doc.id,date:selDate,time:t,service:'',status:'Запланирован'});setShowAdd(true);})():setSelApp(apps[0])} style={{height:SLOT_H,borderTop:`1px solid ${C.border}`,background:inW?C.card:C.bg,cursor:'pointer',position:'relative',overflow:'hidden',transition:'background .1s'}}>
               {apps.map(a=><div key={a.id} style={{position:'absolute',inset:'3px 3px',background:STATUS_C[a.status]+'18',border:`1.5px solid ${STATUS_C[a.status]}66`,borderRadius:8,padding:'4px 8px',overflow:'hidden'}}>
@@ -323,7 +323,7 @@ function ScheduleTab({appts,patients,doctors}){
 
     {selApp&&<Modal title="Приём" onClose={()=>setSelApp(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        {(()=>{const doc=doctors.data.find(d=>d.id===selApp.doctor_id);return doc?<div style={{display:'flex',gap:10,alignItems:'center',background:C.bg,borderRadius:12,padding:12,border:`1px solid ${C.border}`}}><DoctorAvatar doctor={doc} size={40}/><div><div style={{fontFamily:'Syne',fontWeight:600}}>{doc.name}</div>{doc.specialty&&<div style={{color:doc.color,fontSize:12}}>{doc.specialty}</div>}</div></div>:null;})()}
+        {(()=>{const doc=doctors.data.find(d=>d.id===selApp.doctor_id);return doc?<div style={{display:'flex',gap:10,alignItems:'center',background:C.bg,borderRadius:12,padding:12,border:`1px solid ${C.border}`}}><DoctorAvatar doctor={doc} size={40}/><div><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600}}>{doc.name}</div>{doc.specialty&&<div style={{color:doc.color,fontSize:12}}>{doc.specialty}</div>}</div></div>:null;})()}
         <Card style={{padding:14}}><Row label="Пациент" value={selApp.patient_name}/><Row label="Услуга" value={selApp.service||'—'}/><Row label="Время" value={`${selApp.date} ${selApp.time}`}/><Row label="Статус" value={<Badge text={selApp.status} color={STATUS_C[selApp.status]||C.muted}/>}/></Card>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{Object.keys(STATUS_C).map(s=><Btn key={s} small onClick={()=>updStatus(selApp.id,s)} color={STATUS_C[s]} outline={selApp.status!==s}>{s}</Btn>)}</div>
         <Btn onClick={async()=>{await appts.remove(selApp.id);setSelApp(null);}} color={C.red} outline full>Удалить</Btn>
@@ -353,7 +353,7 @@ function PatientsTab({patients,appts,emr}){
     {patients.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Пациентов нет</div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {filtered.map(p=>{const cnt=appts.data.filter(a=>a.patient_id===p.id).length;return<Card key={p.id} onClick={()=>{setSel(p);setPtab('info');setEmrView('list');}} style={{padding:'14px 16px',cursor:'pointer'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontFamily:'Syne',fontWeight:600,fontSize:16,color:C.text}}>{p.name}</div>{cnt>0&&<Badge text={`${cnt} прим.`} color={C.accent}/>}</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,fontSize:16,color:C.text}}>{p.name}</div>{cnt>0&&<Badge text={`${cnt} прим.`} color={C.accent}/>}</div>
           <div style={{color:C.muted,fontSize:13,marginTop:4}}>{p.phone}{p.dob?` · ${p.dob}`:''}</div>
           {p.allergy&&<div style={{color:C.red,fontSize:11,marginTop:4}}>⚠ {p.allergy}</div>}
         </Card>;})}
@@ -383,7 +383,7 @@ function PatientsTab({patients,appts,emr}){
       {ptab==='emr'&&<div>
         {emrView==='list'&&<><div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:12,paddingBottom:4}}>{EMR_TMPL.map(t=><div key={t.id} onClick={()=>{setEmrTmpl(t);setEmrFields({});setEmrView('new');}} style={{background:C.accent+'18',border:`1.5px solid ${C.accent}44`,borderRadius:20,padding:'5px 14px',cursor:'pointer',whiteSpace:'nowrap',fontSize:12,color:C.accent,fontWeight:600}}>+ {t.label}</div>)}</div>
         {patEmr.length===0?<div style={{textAlign:'center',color:C.muted,padding:20}}>Записей нет</div>:patEmr.map(r=><Card key={r.id} onClick={()=>{setSelRec(r);setEmrView('detail');}} style={{padding:'12px 14px',cursor:'pointer',marginBottom:8}}>
-          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'Syne',fontWeight:600}}>{r.template_label}</span><span style={{fontSize:12,color:C.muted}}>{r.date}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600}}>{r.template_label}</span><span style={{fontSize:12,color:C.muted}}>{r.date}</span></div>
           {r.fields?.diagnosis&&<div style={{color:C.accent,fontSize:12,marginTop:4}}>Диагноз: {r.fields.diagnosis}</div>}
         </Card>)}</>}
         {emrView==='new'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -399,7 +399,7 @@ function PatientsTab({patients,appts,emr}){
       </div>}
       {ptab==='history'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
         {patApps.length===0?<div style={{textAlign:'center',color:C.muted,padding:20}}>Нет приёмов</div>:patApps.map(a=><Card key={a.id} style={{padding:'10px 14px',borderLeft:`4px solid ${STATUS_C[a.status]||C.muted}`}}>
-          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'Syne',fontWeight:600,fontSize:13}}>{a.date} {a.time}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,fontSize:13}}>{a.date} {a.time}</span><Badge text={a.status} color={STATUS_C[a.status]||C.muted}/></div>
           <div style={{color:C.muted,fontSize:12,marginTop:3}}>{a.doctor_name||'—'}{a.service?` · ${a.service}`:''}</div>
         </Card>)}
       </div>}
@@ -454,13 +454,13 @@ function DoctorsTab({doctors,specialties}){
   };
 
   return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><span style={{fontFamily:'Syne',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span><Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn></div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span><Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn></div>
     {doctors.loading?<Spinner/>:doctors.data.length===0?<div style={{textAlign:'center',color:C.muted,padding:50}}><div style={{fontSize:40,marginBottom:12}}>👨‍⚕️</div>Добавьте первого врача</div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {doctors.data.map(d=><Card key={d.id} onClick={()=>setSel(d)} style={{padding:'14px 16px',cursor:'pointer',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <DoctorAvatar doctor={d} size={44}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>{d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}<div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div></div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>{d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}<div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div></div>
             <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'18':C.muted+'18',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600}}>{d.active?'Работает':'Выходной'}</div>
           </div>
         </Card>)}
@@ -469,7 +469,7 @@ function DoctorsTab({doctors,specialties}){
     {showAdd&&<Modal title="Новый врач" onClose={()=>setShowAdd(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={false} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots} specialties={specialties}/></Modal>}
     {sel&&!editing&&<Modal title="Карточка врача" onClose={()=>setSel(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
-        <div style={{display:'flex',gap:14,alignItems:'center'}}><DoctorAvatar doctor={sel} size={60}/><div><div style={{fontFamily:'Syne',fontWeight:700,fontSize:18,color:C.text}}>{sel.name}</div>{sel.specialty&&<div style={{color:sel.color,fontSize:14}}>{sel.specialty}</div>}</div></div>
+        <div style={{display:'flex',gap:14,alignItems:'center'}}><DoctorAvatar doctor={sel} size={60}/><div><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:18,color:C.text}}>{sel.name}</div>{sel.specialty&&<div style={{color:sel.color,fontSize:14}}>{sel.specialty}</div>}</div></div>
         <Card style={{padding:14}}><Row label="Телефон" value={sel.phone||'—'}/><Row label="Часы" value={`${sel.work_start}–${sel.work_end}`}/>{sel.description&&<div style={{color:C.muted,fontSize:13,marginTop:8,lineHeight:1.5}}>{sel.description}</div>}</Card>
         <div style={{display:'flex',gap:10}}><Btn full outline color={C.accent} onClick={()=>{setForm({name:sel.name,specialty:sel.specialty||'',phone:sel.phone||'',description:sel.description||'',photo:sel.photo||'',color:sel.color||DC[0],work_start:sel.work_start||'08:00',work_end:sel.work_end||'18:00',active:sel.active});setEditing(true);}}>Редактировать</Btn><Btn outline color={C.red} onClick={async()=>{await doctors.remove(sel.id);setSel(null);}}>Удалить</Btn></div>
       </div>
@@ -496,7 +496,7 @@ function FinancesTab({payments,patients,doctors}){
       {[{l:'Оплачено',v:total,c:C.green},{l:'Ожидает',v:pend,c:C.orange},{l:'Долг',v:debt,c:C.red}].map(({l,v,c})=>(
         <Card key={l} style={{flex:1,padding:'12px 8px',textAlign:'center',borderTop:`3px solid ${c}`}}>
           <div style={{color:C.muted,fontSize:10,marginBottom:4}}>{l}</div>
-          <div style={{fontFamily:'Syne',fontWeight:700,fontSize:14,color:c}}>{v.toLocaleString()} ₽</div>
+          <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:14,color:c}}>{v.toLocaleString()} ₽</div>
         </Card>
       ))}
     </div>
@@ -507,7 +507,7 @@ function FinancesTab({payments,patients,doctors}){
     {payments.loading?<Spinner/>:shown.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>Нет платежей</div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {shown.map(p=><Card key={p.id} onClick={()=>payments.update(p.id,{status:cycle[p.status]})} style={{padding:'14px 16px',cursor:'pointer'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'Syne',fontWeight:600,color:C.text}}>{p.patient_name}</span><span style={{fontFamily:'Syne',fontWeight:700,color:PAY_C[p.status]}}>{Number(p.amount).toLocaleString()} ₽</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,color:C.text}}>{p.patient_name}</span><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,color:PAY_C[p.status]}}>{Number(p.amount).toLocaleString()} ₽</span></div>
           <div style={{display:'flex',justifyContent:'space-between',marginTop:6,gap:8}}><span style={{color:C.muted,fontSize:13}}>{p.doctor_name||p.service||p.date}</span><Badge text={p.status} color={PAY_C[p.status]}/></div>
         </Card>)}
       </div>
@@ -539,7 +539,7 @@ function TasksTab({tasks,doctors}){
   const save=async()=>{if(!form.title.trim())return;setSaving(true);await tasks.insert({...form,done:false,created_at:today()});setForm({title:'',assignee:'',priority:'Средний',due_date:'',notes:''});setShowAdd(false);setSaving(false);};
 
   return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontFamily:'Syne',fontWeight:700,fontSize:16,color:C.text}}>Задачи</span><Btn small onClick={()=>setShowAdd(true)}>+ Задача</Btn></div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Задачи</span><Btn small onClick={()=>setShowAdd(true)}>+ Задача</Btn></div>
     <div style={{display:'flex',gap:8,marginBottom:14}}>
       {[{id:'active',l:`Активные (${tasks.data.filter(t=>!t.done).length})`},{id:'done',l:`Выполнено (${tasks.data.filter(t=>t.done).length})`}].map(f=>(
         <div key={f.id} onClick={()=>setFilter(f.id)} style={{background:filter===f.id?C.accent+'18':C.card,border:`1.5px solid ${filter===f.id?C.accent:C.border}`,borderRadius:20,padding:'6px 14px',cursor:'pointer',fontSize:12,color:filter===f.id?C.accent:C.muted,fontWeight:600,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>{f.l}</div>
@@ -599,7 +599,7 @@ function SpecialtiesTab({specialties,setSpecialties}){
 
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-      <span style={{fontFamily:'Syne',fontWeight:700,fontSize:16,color:C.text}}>Специализации ({specialties.length})</span>
+      <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Специализации ({specialties.length})</span>
       <Btn small onClick={()=>setShowAdd(true)}>+ Добавить</Btn>
     </div>
     {specialties.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40}}>
@@ -610,7 +610,7 @@ function SpecialtiesTab({specialties,setSpecialties}){
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {specialties.map(s=><Card key={s.id} style={{padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
-          <div style={{fontFamily:'Syne',fontWeight:600,fontSize:15,color:C.text}}>{s.name}</div>
+          <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,fontSize:15,color:C.text}}>{s.name}</div>
           {s.desc&&<div style={{color:C.muted,fontSize:12,marginTop:3}}>{s.desc}</div>}
         </div>
         <button onClick={()=>remove(s.id)} style={{background:'none',color:C.muted2,fontSize:20,padding:'0 4px',flexShrink:0}}>×</button>
@@ -665,7 +665,7 @@ function App(){
     <div style={{minHeight:'100vh',background:C.bg,paddingBottom:72}}>
       <div style={{padding:'14px 16px 12px',borderBottom:`1px solid ${C.border}`,background:C.card,position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{flex:1}}><span style={{fontFamily:'Syne',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
+          <div style={{flex:1}}><span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:800,fontSize:20,color:C.accent}}>Клиника</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>· {TABS.find(t=>t.id===tab)?.label}</span></div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             {overdueCnt>0&&<div style={{background:C.red+'18',border:`1px solid ${C.red}33`,borderRadius:20,padding:'2px 8px',fontSize:11,color:C.red,fontWeight:600}}>⚠{overdueCnt}</div>}
             <div style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.accent,fontWeight:600}}>{todayCnt} сегодня</div>
@@ -700,7 +700,7 @@ function App(){
 
     {menuOpen&&<div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.5)',zIndex:300,display:'flex',alignItems:'flex-end'}} onClick={()=>setMenuOpen(false)}>
       <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,margin:'0 auto',boxShadow:'0 -8px 40px rgba(0,0,0,.15)',animation:'slideUp .22s ease'}}>
-        <div style={{fontFamily:'Syne',fontWeight:700,fontSize:16,marginBottom:16,color:C.text}}>Все разделы</div>
+        <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,marginBottom:16,color:C.text}}>Все разделы</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
           {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
             <span style={{fontSize:22}}>{t.icon}</span>
