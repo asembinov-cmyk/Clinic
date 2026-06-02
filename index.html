@@ -258,7 +258,7 @@ function ReceptionTab({appts,patients,doctors}){
 // ══════════════════════════════════════════════════════════════════════════════
 // SCHEDULE (расписание — таймлайн по врачам)
 // ══════════════════════════════════════════════════════════════════════════════
-function ScheduleTab({appts,patients,doctors}){
+function ScheduleTab({appts,patients,doctors,onOpenVisit}){
   const[selDate,setSelDate]=useState(today());const[activeDocs,setActiveDocs]=useState([]);const[showAdd,setShowAdd]=useState(false);const[selApp,setSelApp]=useState(null);const[saving,setSaving]=useState(false);
   const[form,setForm]=useState({patient_name:'',doctor_id:'',date:today(),time:'09:00',service:'',status:'Запланирован'});
   const[specFilters,setSpecFilters]=useState([]);
@@ -444,6 +444,7 @@ function ScheduleTab({appts,patients,doctors}){
         {(()=>{const doc=doctors.data.find(d=>d.id===selApp.doctor_id);return doc?<div style={{display:'flex',gap:10,alignItems:'center',background:C.bg,borderRadius:12,padding:12,border:`1px solid ${C.border}`}}><DoctorAvatar doctor={doc} size={40}/><div><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600}}>{doc.name}</div>{doc.specialty&&<div style={{color:doc.color,fontSize:12}}>{doc.specialty}</div>}</div></div>:null;})()}
         <Card style={{padding:14}}><Row label="Пациент" value={selApp.patient_name}/><Row label="Услуга" value={selApp.service||'—'}/><Row label="Время" value={`${selApp.date} ${selApp.time}`}/><Row label="Статус" value={<Badge text={selApp.status} color={STATUS_C[selApp.status]||C.muted}/>}/></Card>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{Object.keys(STATUS_C).map(s=><Btn key={s} small onClick={()=>updStatus(selApp.id,s)} color={STATUS_C[s]} outline={selApp.status!==s}>{s}</Btn>)}</div>
+        {onOpenVisit&&<Btn full color={C.purple} onClick={()=>{onOpenVisit(selApp);setSelApp(null);}}>📋 Открыть / заполнить визит</Btn>}
         <Btn onClick={async()=>{await appts.remove(selApp.id);setSelApp(null);}} color={C.red} outline full>Удалить</Btn>
       </div>
     </Modal>}
@@ -994,15 +995,27 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
   </div>;
 }
 
-function VisitsTab({user,patients,doctors,appts}){
+function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
   const visits=useTable('clinic_visits','created_at',false);
-  const[expandedId,setExpandedId]=useState(null); // id раскрытой карточки
-  const[expandedForm,setExpandedForm]=useState(null); // {patient,doctor,appointment_id,...} для формы
+  const[expandedId,setExpandedId]=useState(null);
+  const[expandedForm,setExpandedForm]=useState(null);
   const[search,setSearch]=useState('');
   const[filterStatus,setFilterStatus]=useState('all');
   const[filterDoc,setFilterDoc]=useState('');
 
   const myDoctor=user?.role==='doctor'?doctors.data.find(d=>String(d.id)===String(user.doctor_id)):null;
+
+  // Автоматически раскрыть карточку из расписания
+  useEffect(()=>{
+    if(!pendingAppt||visits.loading||appts.loading)return;
+    const apptId=pendingAppt.id;
+    const vId='appt_'+apptId;
+    const patient=patients.data.find(p=>String(p.id)===String(pendingAppt.patient_id))||{id:pendingAppt.patient_id,name:pendingAppt.patient_name};
+    const doctor=doctors.data.find(d=>String(d.id)===String(pendingAppt.doctor_id))||{id:pendingAppt.doctor_id,name:pendingAppt.doctor_name};
+    setExpandedId(vId);
+    setExpandedForm({patient,doctor,appointment_id:apptId,date:pendingAppt.date,service:pendingAppt.service,_isAppt:true});
+    onClearPending?.();
+  },[pendingAppt,visits.loading,appts.loading]);
 
   const combined=React.useMemo(()=>{
     const linkedApptIds=new Set(visits.data.map(v=>v.appointment_id).filter(Boolean));
@@ -1343,7 +1356,12 @@ function App({user,onLogout}){
       }catch{}
     })();
   },[]);
-  const todayCnt=appts.data.filter(a=>a.date===today()).length;
+  const[pendingVisitAppt,setPendingVisitAppt]=useState(null);
+
+  const handleOpenVisit=(appt)=>{
+    setPendingVisitAppt(appt);
+    setTab('visits');
+  };
   const overdueCnt=tasks.data.filter(t=>!t.done&&t.due_date&&t.due_date<today()).length;
 
   const SidebarContent=()=><>
@@ -1384,9 +1402,9 @@ function App({user,onLogout}){
   const tabContent=<>
     {tab==='dashboard'&&<DashboardTab patients={patients} appts={appts} payments={payments} doctors={doctors} tasks={tasks}/>}
     {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
-    {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
+    {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors} onOpenVisit={handleOpenVisit}/>}
     {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
-    {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts}/>}
+    {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts} pendingAppt={pendingVisitAppt} onClearPending={()=>setPendingVisitAppt(null)}/>}
     {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
     {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
     {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
