@@ -860,13 +860,24 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
   };
 
   const save=async(status)=>{
+    // Валидация — нужен хотя бы пациент
+    if(!patient?.name&&!form.complaints){
+      alert('Заполните хотя бы жалобы пациента');
+      return;
+    }
+    if(!patient?.name){
+      alert('Выберите пациента');
+      return;
+    }
     setSaving(true);
-    const data={...form,status:status||form.status,
-      patient_id:patient?.id,patient_name:patient?.name,
-      doctor_id:doctor?.id,doctor_name:doctor?.name,
-      appointment_id:appointmentId||form.appointment_id||null,
-      date:today()};
-    await onSave(data);
+    try{
+      const data={...form,status:status||form.status,
+        patient_id:patient?.id||null,patient_name:patient?.name||'',
+        doctor_id:doctor?.id||null,doctor_name:doctor?.name||'',
+        appointment_id:appointmentId||form.appointment_id||null,
+        date:today()};
+      await onSave(data);
+    }catch(e){console.error(e);}
     setSaving(false);
   };
 
@@ -976,7 +987,8 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
 
     {/* Кнопки */}
     <div style={{display:'flex',gap:10,marginTop:16,paddingTop:12,borderTop:`1px solid ${C.border}`}}>
-      <Btn outline color={C.muted} onClick={()=>save('Черновик')} disabled={saving} small>💾 Черновик</Btn>
+      <Btn outline color={C.muted} onClick={onClose} small>Отмена</Btn>
+      <Btn outline color={C.orange} onClick={()=>save('Черновик')} disabled={saving} small>💾 Черновик</Btn>
       <Btn full onClick={()=>save('Завершён')} disabled={saving} color={C.green}>{saving?'Сохранение...':'✓ Завершить визит'}</Btn>
     </div>
   </div>;
