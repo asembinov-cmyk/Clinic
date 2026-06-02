@@ -186,7 +186,19 @@ function ReceptionTab({appts,patients,doctors}){
   const nav=d=>{const dt=new Date(selDate);dt.setDate(dt.getDate()+d);setSelDate(dt.toISOString().split('T')[0]);};
   const dayApps=[...appts.data.filter(a=>a.date===selDate)].sort((a,b)=>a.time.localeCompare(b.time));
   const stats={total:dayApps.length,came:dayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length,waiting:dayApps.filter(a=>a.status==='Запланирован').length,cancelled:dayApps.filter(a=>a.status==='Отменён').length};
-  const addApp=async()=>{if(!form.patient_name.trim())return;setSaving(true);const doc=doctors.data.find(d=>String(d.id)===String(form.doctor_id));const pt=patients.data.find(p=>p.name.toLowerCase()===form.patient_name.toLowerCase());await appts.insert({...form,doctor_id:doc?.id||null,doctor_name:doc?.name||'',patient_id:pt?.id||null});setShowAdd(false);setSaving(false);};
+  const addApp=async()=>{
+    if(!form.patient_name.trim())return;
+    setSaving(true);
+    const doc=doctors.data.find(d=>String(d.id)===String(form.doctor_id));
+    // Ищем пациента в базе
+    let pt=patients.data.find(p=>p.name.toLowerCase()===form.patient_name.trim().toLowerCase());
+    // Если не найден — создаём
+    if(!pt){
+      pt=await patients.insert({name:form.patient_name.trim(),phone:'',dob:'',gender:'',address:'',allergy:'',notes:''});
+    }
+    await appts.insert({...form,patient_name:form.patient_name.trim(),doctor_id:doc?.id||null,doctor_name:doc?.name||'',patient_id:pt?.id||null});
+    setShowAdd(false);setSaving(false);
+  };
   const updStatus=async(id,status)=>{await appts.update(id,{status});if(selApp?.id===id)setSelApp({...selApp,status});};
 
   return <div>
@@ -288,7 +300,19 @@ function ScheduleTab({appts,patients,doctors}){
 
   const dayApps=appts.data.filter(a=>a.date===selDate);
   const appsFor=(did,t)=>dayApps.filter(a=>a.doctor_id===did&&a.time===t);
-  const addApp=async()=>{if(!form.patient_name.trim())return;setSaving(true);const doc=doctors.data.find(d=>String(d.id)===String(form.doctor_id));const pt=patients.data.find(p=>p.name.toLowerCase()===form.patient_name.toLowerCase());await appts.insert({...form,doctor_id:doc?.id||null,doctor_name:doc?.name||'',patient_id:pt?.id||null});setShowAdd(false);setSaving(false);};
+  const addApp=async()=>{
+    if(!form.patient_name.trim())return;
+    setSaving(true);
+    const doc=doctors.data.find(d=>String(d.id)===String(form.doctor_id));
+    // Ищем пациента в базе
+    let pt=patients.data.find(p=>p.name.toLowerCase()===form.patient_name.trim().toLowerCase());
+    // Если не найден — создаём
+    if(!pt){
+      pt=await patients.insert({name:form.patient_name.trim(),phone:'',dob:'',gender:'',address:'',allergy:'',notes:''});
+    }
+    await appts.insert({...form,patient_name:form.patient_name.trim(),doctor_id:doc?.id||null,doctor_name:doc?.name||'',patient_id:pt?.id||null});
+    setShowAdd(false);setSaving(false);
+  };
   const updStatus=async(id,status)=>{await appts.update(id,{status});if(selApp?.id===id)setSelApp({...selApp,status});};
 
   return <div>
