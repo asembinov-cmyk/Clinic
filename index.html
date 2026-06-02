@@ -20,7 +20,6 @@ const SUPA_URL='https://zcewrdkwkfudpsybjglb.supabase.co';
 const SUPA_KEY='sb_publishable_QrN5N_msKkdzfDlJHXdJ-Q_pNEejVQm';
 const db=createClient(SUPA_URL,SUPA_KEY);
 
-// ── СВЕТЛАЯ ТЕМА ─────────────────────────────────────────────────────────────
 const C={
   bg:"#f4f6fb", card:"#ffffff", card2:"#f0f3fa", border:"#e2e8f0",
   accent:"#2563eb", green:"#16a34a", orange:"#ea580c", red:"#dc2626",
@@ -47,7 +46,6 @@ const today=()=>new Date().toISOString().split('T')[0];
 const fmtDate=ds=>new Date(ds+'T12:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 const genSlots=(s="08:00",e="20:00")=>{const r=[];let[h,m]=s.split(':').map(Number);const[eh,em]=e.split(':').map(Number);while(h<eh||(h===eh&&m<em)){r.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);m+=30;if(m>=60){h++;m-=60;}}return r;};
 
-// ── UI ────────────────────────────────────────────────────────────────────────
 const Badge=({text,color})=><span style={{background:color+'18',color,border:`1px solid ${color}33`,borderRadius:20,padding:'2px 10px',fontSize:12,fontWeight:600,whiteSpace:'nowrap'}}>{text}</span>;
 const Spinner=()=><div style={{display:'flex',justifyContent:'center',padding:40}}><div style={{width:28,height:28,border:`3px solid #e2e8f0`,borderTopColor:C.accent,borderRadius:'50%',animation:'spin .8s linear infinite'}}/></div>;
 const Row=({label,value})=><div style={{display:'flex',justifyContent:'space-between',marginBottom:8,alignItems:'flex-start'}}><span style={{color:C.muted,fontSize:13,flexShrink:0,marginRight:8}}>{label}</span><span style={{fontSize:13,textAlign:'right'}}>{value}</span></div>;
@@ -80,7 +78,6 @@ function Card({children,style={}}){
   return <div style={{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.06)',...style}}>{children}</div>;
 }
 
-// ── Supabase hook ─────────────────────────────────────────────────────────────
 function useTable(table,orderCol='created_at',orderAsc=false){
   const[data,setData]=useState([]);const[loading,setLoading]=useState(true);
   const load=useCallback(async()=>{setLoading(true);const{data:rows}=await db.from(table).select('*').order(orderCol,{ascending:orderAsc});setData(rows||[]);setLoading(false);},[table]);
@@ -117,13 +114,14 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
       {overdue.map(t=><div key={t.id} style={{fontSize:12,color:C.red,marginTop:2}}>{t.title}</div>)}
     </Card>}
 
-    <div style={{background:`linear-gradient(135deg,${C.accent},${C.purple})`,borderRadius:18,padding:'18px 18px'}}>
-      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:'#fff',marginBottom:12}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
-      <div style={{display:'flex',gap:8}}>
+    <div style={{background:`linear-gradient(135deg,${C.accent},${C.purple})`,borderRadius:18,padding:'18px 16px'}}>
+      <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:'#fff',marginBottom:14}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
+      {/* ── ИСПРАВЛЕННЫЕ КАРТОЧКИ: grid вместо flex ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
         {[{l:'Приёмов',v:todayApps.length},{l:'Пришли',v:todayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length},{l:'Ждут',v:todayApps.filter(a=>a.status==='Запланирован').length},{l:'Отмена',v:todayApps.filter(a=>a.status==='Отменён').length}].map(({l,v})=>(
-          <div key={l} style={{flex:1,background:'rgba(255,255,255,.2)',borderRadius:12,padding:'8px 4px',textAlign:'center'}}>
-            <div style={{fontFamily:'Syne',fontWeight:800,fontSize:20,color:'#fff'}}>{v}</div>
-            <div style={{color:'rgba(255,255,255,.8)',fontSize:9}}>{l}</div>
+          <div key={l} style={{minWidth:0,background:'rgba(255,255,255,.2)',borderRadius:12,padding:'10px 4px 8px',textAlign:'center',backdropFilter:'blur(8px)'}}>
+            <div style={{fontFamily:'Syne',fontWeight:800,fontSize:22,color:'#fff',lineHeight:1}}>{v}</div>
+            <div style={{color:'rgba(255,255,255,.85)',fontSize:10,marginTop:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l}</div>
           </div>
         ))}
       </div>
@@ -236,7 +234,7 @@ function ReceptionTab({appts,patients,doctors}){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SCHEDULE (расписание — таймлайн по врачам)
+// SCHEDULE
 // ══════════════════════════════════════════════════════════════════════════════
 function ScheduleTab({appts,patients,doctors}){
   const[selDate,setSelDate]=useState(today());const[activeDocs,setActiveDocs]=useState([]);const[showAdd,setShowAdd]=useState(false);const[selApp,setSelApp]=useState(null);const[saving,setSaving]=useState(false);
@@ -565,7 +563,7 @@ function TasksTab({tasks,doctors}){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SPECIALTIES (справочник специализаций)
+// SPECIALTIES
 // ══════════════════════════════════════════════════════════════════════════════
 function SpecialtiesTab({specialties,setSpecialties}){
   const[showAdd,setShowAdd]=useState(false);
@@ -680,33 +678,10 @@ function App(){
       </div>
     </div>
 
-    {/* Bottom nav */}
     <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,display:'flex',padding:'6px 0 8px',zIndex:50,boxShadow:'0 -2px 8px rgba(0,0,0,.06)'}}>
       {TABS.slice(0,5).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent'}}>
         <span style={{fontSize:17}}>{t.icon}</span>
         <span style={{fontSize:9,color:tab===t.id?C.accent:C.muted,fontWeight:tab===t.id?600:400}}>{t.label}</span>
       </button>)}
       <button onClick={()=>setMenuOpen(true)} style={{flex:1,background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'3px 2px',borderTop:'2px solid transparent'}}>
-        <span style={{fontSize:17}}>⋯</span>
-        <span style={{fontSize:9,color:C.muted}}>Ещё</span>
-      </button>
-    </div>
-
-    {menuOpen&&<div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.5)',zIndex:300,display:'flex',alignItems:'flex-end'}} onClick={()=>setMenuOpen(false)}>
-      <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:'22px 22px 0 0',padding:24,width:'100%',maxWidth:520,margin:'0 auto',boxShadow:'0 -8px 40px rgba(0,0,0,.15)',animation:'slideUp .22s ease'}}>
-        <div style={{fontFamily:'Syne',fontWeight:700,fontSize:16,marginBottom:16,color:C.text}}>Все разделы</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-          {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{background:tab===t.id?C.accent+'18':C.bg,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,borderRadius:14,padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
-            <span style={{fontSize:22}}>{t.icon}</span>
-            <span style={{fontSize:11,color:tab===t.id?C.accent:C.text,fontWeight:600,textAlign:'center'}}>{t.label}</span>
-          </button>)}
-        </div>
-      </div>
-    </div>}
-  </>;
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
-</body>
-</html>
+        <span style={{fontSi
