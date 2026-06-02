@@ -78,8 +78,8 @@ function DoctorAvatar({doctor,size=36}){
   return <div style={{width:size,height:size,borderRadius:'50%',background:(doctor?.color||C.accent)+'18',border:`2px solid ${doctor?.color||C.accent}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.35,fontWeight:700,color:doctor?.color||C.accent,flexShrink:0}}>{ini}</div>;
 }
 
-function Card({children,style={}}){
-  return <div style={{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.06)',...style}}>{children}</div>;
+function Card({children,style={},onClick}){
+  return <div onClick={onClick} style={{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.06)',...style}}>{children}</div>;
 }
 
 // ── Supabase hook ─────────────────────────────────────────────────────────────
