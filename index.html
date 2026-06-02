@@ -849,13 +849,14 @@ const EXAM_SYSTEMS=[
 const VISIT_TYPES=['Первичный','Повторный','Консультация','Плановый','Экстренный'];
 const DIAG_TYPES=['Основной','Сопутствующий','Осложнение'];
 
-function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
+function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose,services}){
   const[tab,setTab]=useState('complaints');
   const[form,setForm]=useState(visit||{
     complaints:'',anamnesis:'',anamnesis_life:'',allergies:'',
     general_condition:'',exam_systems:{},
     diagnosis:'',diagnosis_code:'',diagnosis_type:'Основной',
     prescription:'',procedures:'',referrals:'',
+    service_name:'',service_amount:'',
     sick_leave:false,sick_leave_days:'',next_visit:'',
     visit_type:'Первичный',files:[],status:'Черновик'
   });
@@ -958,6 +959,27 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
 
     {/* Лечение */}
     {tab==='treatment'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {/* Услуга и сумма */}
+      <Card style={{padding:14,borderLeft:`3px solid ${C.accent}`}}>
+        <div style={{fontSize:12,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:10}}>УСЛУГА И ОПЛАТА</div>
+        <div style={{display:'flex',gap:10,marginBottom:10}}>
+          <div style={{flex:2}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:4}}>Услуга</div>
+            <input placeholder="Название услуги..." value={form.service_name} onChange={set('service_name')} list="svc_list"/>
+            <datalist id="svc_list">{(services||[]).map(s=><option key={s.id} value={s.name}>{s.name} — {Number(s.price).toLocaleString()} ₸</option>)}</datalist>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:4}}>Сумма ₸</div>
+            <input type="number" placeholder="0" value={form.service_amount} onChange={set('service_amount')}/>
+          </div>
+        </div>
+        {/* Быстрый выбор из справочника */}
+        {(services||[]).length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {(services||[]).filter(s=>s.active!==false).slice(0,8).map(s=><div key={s.id} onClick={()=>setForm(f=>({...f,service_name:s.name,service_amount:String(s.price)}))} style={{background:form.service_name===s.name?C.accent+'18':C.bg,border:`1px solid ${form.service_name===s.name?C.accent:C.border}`,borderRadius:20,padding:'4px 12px',cursor:'pointer',fontSize:11,color:form.service_name===s.name?C.accent:C.muted,fontWeight:600,whiteSpace:'nowrap'}}>
+            {s.name} · {Number(s.price).toLocaleString()}₸
+          </div>)}
+        </div>}
+      </Card>
       <div><div style={{fontSize:12,color:C.muted,marginBottom:4,fontWeight:500}}>Назначения / Рецепт</div>
         <textarea rows={4} placeholder="Препараты, дозировки, курс лечения..." value={form.prescription} onChange={set('prescription')} style={{resize:'vertical'}}/>
       </div>
@@ -1009,7 +1031,7 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose}){
   </div>;
 }
 
-function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
+function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,services}){
   const visits=useTable('clinic_visits','created_at',false);
   const[expandedId,setExpandedId]=useState(null);
   const[expandedForm,setExpandedForm]=useState(null);
@@ -1138,7 +1160,7 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
         </div>
         <VisitForm visit={null} patient={expandedForm.patient} doctor={expandedForm.doctor} appointmentId={null}
           onSave={(data)=>saveVisit(data,null)}
-          onClose={()=>{setExpandedId(null);setExpandedForm(null);}}/>
+          onClose={()=>{setExpandedId(null);setExpandedForm(null);}} services={services}/>
       </Card>
     </div>}
 
@@ -1162,6 +1184,7 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
                   </div>
                   <div style={{color:C.muted,fontSize:12}}>{v.doctor_name} · {v.date}{v.time?` · ${v.time}`:''}</div>
                   {v.service&&<div style={{fontSize:12,color:C.teal,marginTop:2}}>{v.service}</div>}
+                  {v.service_name&&<div style={{fontSize:12,color:C.accent,marginTop:2}}>{v.service_name}{v.service_amount?` · ${Number(v.service_amount).toLocaleString()} ₸`:''}</div>}
                   {!isAppt&&v.diagnosis&&<div style={{fontSize:12,color:C.accent,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Dx: {v.diagnosis}</div>}
                 </div>
                 <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0,marginLeft:12}}>
@@ -1181,11 +1204,15 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
                   doctor={expandedForm?.doctor||{id:v.doctor_id,name:v.doctor_name}}
                   appointmentId={v.appt_id||expandedForm?.appointment_id}
                   onSave={(data)=>saveVisit(data,v.id)}
-                  onClose={()=>{setExpandedId(null);setExpandedForm(null);}}/>
+                  onClose={()=>{setExpandedId(null);setExpandedForm(null);}} services={services}/>
               :
                 /* Просмотр заполненного визита */
                 <div style={{display:'flex',flexDirection:'column',gap:12}}>
                   {v.visit_type&&<div style={{display:'inline-block',background:C.purple+'18',color:C.purple,borderRadius:20,padding:'3px 12px',fontSize:12,fontWeight:600}}>{v.visit_type}</div>}
+                  {(v.service_name||v.service_amount)&&<div style={{background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.accent}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div><div style={{fontSize:11,color:C.muted,marginBottom:2}}>УСЛУГА</div><div style={{fontSize:14,fontWeight:600,color:C.text}}>{v.service_name||'—'}</div></div>
+                    {v.service_amount&&<div style={{fontWeight:800,fontSize:18,color:C.green}}>{Number(v.service_amount).toLocaleString()} ₸</div>}
+                  </div>}
                   {v.complaints&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ЖАЛОБЫ</div><div style={{fontSize:13,lineHeight:1.6,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.complaints}</div></div>}
                   {v.anamnesis&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>АНАМНЕЗ</div><div style={{fontSize:13,lineHeight:1.6,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.anamnesis}</div></div>}
                   {v.general_condition&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>ОБЩЕЕ СОСТОЯНИЕ</div><div style={{fontSize:13,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.general_condition}</div></div>}
@@ -1224,7 +1251,7 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
                       doctor={{id:v.doctor_id,name:v.doctor_name}}
                       appointmentId={v.appointment_id}
                       onSave={(data)=>saveVisit(data,v.id)}
-                      onClose={()=>setExpandedForm(null)}/>
+                      onClose={()=>setExpandedForm(null)} services={services}/>
                   </div>}
                 </div>
               }
@@ -1233,6 +1260,81 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending}){
         })}
       </div>
     )}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SERVICES — справочник услуг
+// ══════════════════════════════════════════════════════════════════════════════
+function ServicesTab({services}){
+  const[showAdd,setShowAdd]=useState(false);
+  const[sel,setSel]=useState(null);
+  const[search,setSearch]=useState('');
+  const[form,setForm]=useState({name:'',price:'',category:'',duration_min:30,active:true});
+  const[saving,setSaving]=useState(false);
+
+  const CATEGORIES=[...new Set(services.data.map(s=>s.category).filter(Boolean))];
+  const filtered=services.data.filter(s=>!search||s.name.toLowerCase().includes(search.toLowerCase())||s.category?.toLowerCase().includes(search.toLowerCase()));
+
+  const save=async()=>{
+    if(!form.name.trim())return;
+    setSaving(true);
+    if(sel){await services.update(sel.id,{...form,price:Number(form.price)||0});}
+    else{await services.insert({...form,price:Number(form.price)||0});}
+    setShowAdd(false);setSel(null);setForm({name:'',price:'',category:'',duration_min:30,active:true});
+    setSaving(false);
+  };
+
+  const totalRevenue=services.data.reduce((s,x)=>s+Number(x.price||0),0);
+
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <span style={{fontWeight:700,fontSize:16,color:C.text}}>Услуги ({services.data.length})</span>
+      <Btn small onClick={()=>{setForm({name:'',price:'',category:'',duration_min:30,active:true});setSel(null);setShowAdd(true);}}>+ Добавить</Btn>
+    </div>
+
+    <input placeholder="🔍 Поиск по названию или категории..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:12}}/>
+
+    {services.loading?<Spinner/>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>
+      <div style={{fontSize:40,marginBottom:12}}>🛎️</div>
+      <div>Услуг нет</div>
+    </div>:<div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {/* Группировка по категориям */}
+      {[...new Set(filtered.map(s=>s.category||'Без категории'))].map(cat=><div key={cat}>
+        <div style={{fontSize:11,fontWeight:700,color:C.muted,letterSpacing:.5,textTransform:'uppercase',marginBottom:6,marginTop:8}}>{cat}</div>
+        {filtered.filter(s=>(s.category||'Без категории')===cat).map(s=><Card key={s.id} style={{padding:'12px 16px',marginBottom:6,opacity:s.active?1:.5}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:14,color:C.text}}>{s.name}</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>{s.duration_min} мин</div>
+            </div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div style={{fontWeight:700,fontSize:16,color:C.green}}>{Number(s.price).toLocaleString()} ₸</div>
+              <button onClick={()=>{setSel(s);setForm({name:s.name,price:String(s.price),category:s.category||'',duration_min:s.duration_min||30,active:s.active});setShowAdd(true);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:8,padding:'4px 8px',fontSize:12,color:C.accent,cursor:'pointer'}}>✏️</button>
+              <div onClick={()=>services.update(s.id,{active:!s.active})} style={{background:s.active?C.green+'18':C.muted+'18',border:`1px solid ${s.active?C.green:C.muted}33`,borderRadius:20,padding:'3px 10px',fontSize:11,color:s.active?C.green:C.muted,cursor:'pointer',fontWeight:600}}>{s.active?'Активна':'Скрыта'}</div>
+            </div>
+          </div>
+        </Card>)}
+      </div>)}
+    </div>}
+
+    {showAdd&&<Modal title={sel?'Редактировать услугу':'Новая услуга'} onClose={()=>{setShowAdd(false);setSel(null);}}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input placeholder="Название услуги *" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoFocus/>
+        <div style={{display:'flex',gap:10}}>
+          <div style={{flex:1}}><div style={{fontSize:12,color:C.muted,marginBottom:4}}>Цена ₸</div><input type="number" placeholder="0" value={form.price} onChange={e=>setForm({...form,price:e.target.value})}/></div>
+          <div style={{flex:1}}><div style={{fontSize:12,color:C.muted,marginBottom:4}}>Длительность (мин)</div><input type="number" value={form.duration_min} onChange={e=>setForm({...form,duration_min:Number(e.target.value)})}/></div>
+        </div>
+        <div><div style={{fontSize:12,color:C.muted,marginBottom:4}}>Категория</div>
+          <input placeholder="Консультации, Диагностика..." value={form.category} onChange={e=>setForm({...form,category:e.target.value})} list="cats"/>
+          <datalist id="cats">{CATEGORIES.map(c=><option key={c} value={c}/>)}</datalist>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <Btn full onClick={save} disabled={saving}>{saving?'Сохранение...':(sel?'Сохранить':'Добавить')}</Btn>
+          {sel&&<Btn outline color={C.red} onClick={async()=>{await services.remove(sel.id);setShowAdd(false);setSel(null);}}>Удалить</Btn>}
+        </div>
+      </div>
+    </Modal>}
   </div>;
 }
 
@@ -1356,11 +1458,12 @@ const TABS=[
   {id:'finances', icon:'💰',label:'Финансы'},
   {id:'tasks',    icon:'✅',label:'Задачи'},
   {id:'specialties',icon:'🩺',label:'Справочник'},
+  {id:'services', icon:'🛎️',label:'Услуги'},
   {id:'users',    icon:'🔐',label:'Доступы'},
 ];
 
 const ROLE_TABS={
-  admin:   ['dashboard','reception','schedule','patients','visits','doctors','finances','tasks','specialties','users'],
+  admin:   ['dashboard','reception','schedule','patients','visits','doctors','finances','tasks','specialties','services','users'],
   reception:['reception','schedule','patients','visits','finances'],
   doctor:  ['schedule','patients','visits'],
   accountant:['finances','dashboard'],
@@ -1376,6 +1479,7 @@ function App({user,onLogout}){
   const payments=useTable('clinic_payments','created_at',false);
   const emr=useTable('clinic_emr','created_at',false);
   const tasks=useTable('clinic_tasks','created_at',false);
+  const services=useTable('clinic_services','name',true,'id,name,price,category,duration_min,active');
   const[specialties,setSpecialties]=useState([]);
   useEffect(()=>{
     (async()=>{
@@ -1434,9 +1538,10 @@ function App({user,onLogout}){
     {tab==='reception'&&<ReceptionTab appts={appts} patients={patients} doctors={doctors}/>}
     {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors} onOpenVisit={handleOpenVisit}/>}
     {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
-    {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts} pendingAppt={pendingVisitAppt} onClearPending={()=>setPendingVisitAppt(null)}/>}
+    {tab==='visits'&&<VisitsTab user={user} patients={patients} doctors={doctors} appts={appts} pendingAppt={pendingVisitAppt} onClearPending={()=>setPendingVisitAppt(null)} services={services.data}/>}
     {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
     {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
+    {tab==='services'&&<ServicesTab services={services}/>}
     {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
     {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
     {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
