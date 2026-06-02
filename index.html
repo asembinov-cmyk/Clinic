@@ -557,8 +557,8 @@ function DoctorForm({form,setForm,saveDoc,saving,editing,fileRef,handlePhoto,slo
 
 function DoctorsTab({doctors,specialties}){
   const[showAdd,setShowAdd]=useState(false);const[sel,setSel]=useState(null);const[editing,setEditing]=useState(false);
-  const ef={name:'',specialty:'',specialtyCustom:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
-  const[form,setForm]=useState(ef);const[saving,setSaving]=useState(false);const fileRef=useRef();const slots=genSlots('06:00','22:30');
+  const ef={name:'',specialty:'',phone:'',description:'',photo:'',color:DC[0],work_start:'08:00',work_end:'18:00',active:true};
+  const[form,setForm]=useState({...ef});const[saving,setSaving]=useState(false);const fileRef=useRef();const slots=genSlots('06:00','22:30');
   const[search,setSearch]=useState('');
   const[specFilters,setSpecFilters]=useState([]);
   const[dropOpen,setDropOpen]=useState(false);
@@ -594,7 +594,7 @@ function DoctorsTab({doctors,specialties}){
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
       <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Врачи ({doctors.data.length})</span>
-      <Btn small onClick={()=>{setForm({...ef,color:DC[doctors.data.length%DC.length]});setShowAdd(true);}}>+ Добавить</Btn>
+      <Btn small onClick={()=>{setForm({name:'',specialty:'',phone:'',description:'',photo:'',color:DC[doctors.data.length%DC.length],work_start:'08:00',work_end:'18:00',active:true});setSel(null);setEditing(false);setShowAdd(true);}}>+ Добавить</Btn>
     </div>
 
     {/* Поиск + фильтр */}
@@ -644,15 +644,18 @@ function DoctorsTab({doctors,specialties}){
       <div style={{fontSize:12,marginTop:6}}><button onClick={()=>{setSearch('');clearFilters();}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',textDecoration:'underline'}}>Сбросить фильтры</button></div>
     </div>:(
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        {filtered.map(d=><Card key={d.id} onClick={()=>setSel(d)} style={{padding:'14px 16px',cursor:'pointer',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
+        {filtered.map(d=><Card key={d.id} style={{padding:'14px 16px',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <DoctorAvatar doctor={d} size={44}/>
-            <div style={{flex:1,minWidth:0}}>
+            <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>setSel(d)}>
               <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>
-              {d.specialty&&<div style={{color:d.color,fontSize:13,marginTop:2}}>{d.specialty}</div>}
-              <div style={{color:C.muted,fontSize:12,marginTop:2}}>{d.work_start}–{d.work_end}</div>
+              {d.specialty&&<div style={{color:d.color,fontSize:12,marginTop:2}}>{d.specialty}</div>}
+              <div style={{color:C.muted,fontSize:11,marginTop:2}}>{d.work_start}–{d.work_end}</div>
             </div>
-            <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'18':C.muted+'18',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600}}>{d.active?'Работает':'Выходной'}</div>
+            <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+              <button onClick={e=>{e.stopPropagation();setForm({name:d.name,specialty:d.specialty||'',phone:d.phone||'',description:d.description||'',photo:d.photo||'',color:d.color||DC[0],work_start:d.work_start||'08:00',work_end:d.work_end||'18:00',active:d.active});setSel(d);setEditing(true);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:8,padding:'5px 10px',fontSize:12,color:C.accent,fontWeight:600,cursor:'pointer'}}>✏️</button>
+              <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'18':C.muted+'18',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600,cursor:'pointer'}}>{d.active?'Работает':'Выходной'}</div>
+            </div>
           </div>
         </Card>)}
       </div>
@@ -764,11 +767,14 @@ function TasksTab({tasks,doctors}){
 // ══════════════════════════════════════════════════════════════════════════════
 // SPECIALTIES (справочник специализаций)
 // ══════════════════════════════════════════════════════════════════════════════
-function SpecialtiesTab({specialties,setSpecialties}){
+function SpecialtiesTab({specialties,setSpecialties,doctors}){
   const[showAdd,setShowAdd]=useState(false);
   const[name,setName]=useState('');
   const[desc,setDesc]=useState('');
   const[saving,setSaving]=useState(false);
+  const[search,setSearch]=useState('');
+  const[editSel,setEditSel]=useState(null);
+  const[editName,setEditName]=useState('');
 
   const save=async()=>{
     if(!name.trim())return;
@@ -788,30 +794,78 @@ function SpecialtiesTab({specialties,setSpecialties}){
     await db.from('clinic_settings').upsert({key:'specialties',value:JSON.stringify(updated)});
   };
 
+  const saveEdit=async()=>{
+    if(!editName.trim())return;
+    setSaving(true);
+    const updated=specialties.map(s=>s.id===editSel.id?{...s,name:editName.trim()}:s);
+    setSpecialties(updated);
+    await db.from('clinic_settings').upsert({key:'specialties',value:JSON.stringify(updated)});
+    setEditSel(null);setSaving(false);
+  };
+
+  // Фильтрация по поиску
+  const filtered=specialties.filter(s=>s.name.toLowerCase().includes(search.toLowerCase()));
+
+  // Считаем сколько врачей с каждой специализацией
+  const docCount=s=>doctors?doctors.data.filter(d=>d.specialty&&d.specialty.includes(s.name)).length:0;
+
   return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-      <span style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:16,color:C.text}}>Специализации ({specialties.length})</span>
-      <Btn small onClick={()=>setShowAdd(true)}>+ Добавить</Btn>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <span style={{fontWeight:700,fontSize:16,color:C.text}}>Специализации ({specialties.length})</span>
+      <Btn small onClick={()=>{setName('');setDesc('');setShowAdd(true);}}>+ Добавить</Btn>
     </div>
-    {specialties.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40}}>
+
+    {/* Поиск */}
+    <input placeholder="🔍 Поиск по названию..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:10}}/>
+
+    {/* Счётчик */}
+    {search&&<div style={{fontSize:12,color:C.muted,marginBottom:10}}>Найдено: <strong>{filtered.length}</strong> из {specialties.length}</div>}
+
+    {specialties.length===0?<div style={{textAlign:'center',color:C.muted,padding:40}}>
       <div style={{fontSize:40,marginBottom:12}}>🩺</div>
       <div>Добавьте специализации врачей</div>
       <div style={{fontSize:12,color:C.muted2,marginTop:6}}>Например: Терапевт, Хирург, Стоматолог...</div>
-    </div>}
-    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-      {specialties.map(s=><Card key={s.id} style={{padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div>
-          <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:600,fontSize:15,color:C.text}}>{s.name}</div>
-          {s.desc&&<div style={{color:C.muted,fontSize:12,marginTop:3}}>{s.desc}</div>}
-        </div>
-        <button onClick={()=>remove(s.id)} style={{background:'none',color:C.muted2,fontSize:20,padding:'0 4px',flexShrink:0}}>×</button>
-      </Card>)}
-    </div>
+    </div>:filtered.length===0?<div style={{textAlign:'center',color:C.muted,padding:30}}>
+      <div style={{fontSize:30,marginBottom:8}}>🔍</div>
+      <div>Ничего не найдено</div>
+      <button onClick={()=>setSearch('')} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontSize:12,marginTop:6,textDecoration:'underline'}}>Сбросить</button>
+    </div>:(
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {filtered.map((s,i)=>{
+          const cnt=docCount(s);
+          return <Card key={s.id} style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,flex:1,minWidth:0}}>
+              <div style={{width:32,height:32,borderRadius:10,background:C.accent+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:C.accent,flexShrink:0}}>{i+1}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14,color:C.text}}>{s.name}</div>
+                {s.desc&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{s.desc}</div>}
+              </div>
+              {cnt>0&&<div style={{background:C.green+'18',border:`1px solid ${C.green}33`,borderRadius:20,padding:'2px 10px',fontSize:11,color:C.green,fontWeight:600,flexShrink:0}}>{cnt} врач{cnt===1?'':cnt<5?'а':'ей'}</div>}
+            </div>
+            <div style={{display:'flex',gap:6,flexShrink:0}}>
+              <button onClick={()=>{setEditSel(s);setEditName(s.name);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:8,padding:'5px 8px',fontSize:12,color:C.accent,cursor:'pointer'}}>✏️</button>
+              <button onClick={()=>remove(s.id)} style={{background:C.red+'18',border:`1px solid ${C.red}33`,borderRadius:8,padding:'5px 8px',fontSize:12,color:C.red,cursor:'pointer'}}>×</button>
+            </div>
+          </Card>;
+        })}
+      </div>
+    )}
+
     {showAdd&&<Modal title="Новая специализация" onClose={()=>setShowAdd(false)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <input placeholder="Название * (напр. Терапевт)" value={name} onChange={e=>setName(e.target.value)}/>
+        <input placeholder="Название * (напр. Терапевт)" value={name} onChange={e=>setName(e.target.value)} autoFocus/>
         <input placeholder="Описание (необязательно)" value={desc} onChange={e=>setDesc(e.target.value)}/>
         <Btn onClick={save} full disabled={saving}>{saving?'Сохранение...':'Добавить'}</Btn>
+      </div>
+    </Modal>}
+
+    {editSel&&<Modal title="Редактировать специализацию" onClose={()=>setEditSel(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <input value={editName} onChange={e=>setEditName(e.target.value)} autoFocus/>
+        <div style={{display:'flex',gap:10}}>
+          <Btn full onClick={saveEdit} disabled={saving}>{saving?'Сохранение...':'Сохранить'}</Btn>
+          <Btn outline color={C.red} onClick={()=>{remove(editSel.id);setEditSel(null);}}>Удалить</Btn>
+        </div>
       </div>
     </Modal>}
   </div>;
@@ -888,7 +942,7 @@ function App({user,onLogout}){
         {tab==='schedule'&&<ScheduleTab appts={appts} patients={patients} doctors={doctors}/>}
         {tab==='patients'&&<PatientsTab patients={patients} appts={appts} emr={emr}/>}
         {tab==='doctors'&&<DoctorsTab doctors={doctors} specialties={specialties}/>}
-        {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties}/>}
+        {tab==='specialties'&&<SpecialtiesTab specialties={specialties} setSpecialties={setSpecialties} doctors={doctors}/>}
         {tab==='users'&&user?.role==='admin'&&<UsersTab doctors={doctors}/>}
         {tab==='finances'&&<FinancesTab payments={payments} patients={patients} doctors={doctors}/>}
         {tab==='tasks'&&<TasksTab tasks={tasks} doctors={doctors}/>}
