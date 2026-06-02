@@ -119,11 +119,11 @@ function DashboardTab({patients,appts,payments,doctors,tasks}){
 
     <div style={{background:`linear-gradient(135deg,${C.accent},${C.purple})`,borderRadius:18,padding:'18px 18px'}}>
       <div style={{fontFamily:'Syne',fontWeight:700,fontSize:15,color:'#fff',marginBottom:12}}>Сегодня — {new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</div>
-      <div style={{display:'flex',gap:8}}>
+      <div style={{display:'flex',gap:10}}>
         {[{l:'Приёмов',v:todayApps.length},{l:'Пришли',v:todayApps.filter(a=>a.status==='Пришёл'||a.status==='Завершён').length},{l:'Ждут',v:todayApps.filter(a=>a.status==='Запланирован').length},{l:'Отмена',v:todayApps.filter(a=>a.status==='Отменён').length}].map(({l,v})=>(
-          <div key={l} style={{flex:1,background:'rgba(255,255,255,.2)',borderRadius:12,padding:'8px 4px',textAlign:'center'}}>
-            <div style={{fontFamily:'Syne',fontWeight:800,fontSize:20,color:'#fff'}}>{v}</div>
-            <div style={{color:'rgba(255,255,255,.8)',fontSize:9}}>{l}</div>
+          <div key={l} style={{flex:1,background:'rgba(255,255,255,.25)',borderRadius:14,padding:'12px 6px',textAlign:'center',minWidth:0}}>
+            <div style={{fontFamily:'Syne',fontWeight:800,fontSize:24,color:'#fff',lineHeight:1}}>{v}</div>
+            <div style={{color:'rgba(255,255,255,.85)',fontSize:10,marginTop:5,lineHeight:1.2}}>{l}</div>
           </div>
         ))}
       </div>
