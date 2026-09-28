@@ -72,8 +72,105 @@ function Btn({children,onClick,color=C.accent,outline=false,small=false,full=fal
   return <button onClick={disabled?undefined:onClick} style={{background:outline?'transparent':color,color:outline?color:'#fff',border:outline?`1.5px solid ${color}`:'none',borderRadius:12,padding:small?'7px 14px':'12px 20px',fontWeight:600,fontSize:small?13:14,width:full?'100%':'auto',opacity:disabled?.5:1,boxShadow:outline?'none':`0 2px 8px ${color}44`}}>{children}</button>;
 }
 
+// ── Быстрые фото: сжатие + Storage + lazy ─────────────────────────────────────
+const MEDIA_BUCKET='clinic-media';
+function loadImageFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+    img.onerror=e=>{URL.revokeObjectURL(url);reject(e);};
+    img.src=url;
+  });
+}
+function canvasToBlob(canvas,type='image/jpeg',quality=0.72){
+  return new Promise(resolve=>canvas.toBlob(b=>resolve(b),type,quality));
+}
+/** Сжимает фото до maxSize px по длинной стороне (JPEG). */
+async function compressImageFile(file,{maxSize=512,quality=0.72}={}){
+  if(!file||!file.type?.startsWith('image/'))return null;
+  try{
+    const img=await loadImageFromFile(file);
+    const scale=Math.min(1,maxSize/Math.max(img.width,img.height));
+    const w=Math.max(1,Math.round(img.width*scale));
+    const h=Math.max(1,Math.round(img.height*scale));
+    const canvas=document.createElement('canvas');
+    canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,w,h);
+    const blob=await canvasToBlob(canvas,'image/jpeg',quality);
+    if(!blob)return null;
+    return{blob,dataUrl:canvas.toDataURL('image/jpeg',quality),width:w,height:h,size:blob.size};
+  }catch(e){console.error('compressImageFile',e);return null;}
+}
+/** Пережимает уже сохранённый dataURL (старые тяжёлые фото). */
+async function recompressDataUrl(dataUrl,{maxSize=512,quality=0.72}={}){
+  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:image'))return dataUrl;
+  // Уже компактные / URL — не трогаем
+  if(dataUrl.length<80000)return dataUrl;
+  try{
+    const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=dataUrl;});
+    const scale=Math.min(1,maxSize/Math.max(img.width,img.height));
+    const w=Math.max(1,Math.round(img.width*scale));
+    const h=Math.max(1,Math.round(img.height*scale));
+    const canvas=document.createElement('canvas');
+    canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    return canvas.toDataURL('image/jpeg',quality);
+  }catch{return dataUrl;}
+}
+/** Загружает в Supabase Storage; при ошибке — сжатый dataURL. */
+async function persistImage(file,{folder='photos',maxSize=512,quality=0.72}={}){
+  const compressed=await compressImageFile(file,{maxSize,quality});
+  if(!compressed){
+    // fallback: сырой FileReader
+    return await new Promise(resolve=>{const r=new FileReader();r.onload=ev=>resolve(ev.target.result);r.onerror=()=>resolve('');r.readAsDataURL(file);});
+  }
+  try{
+    const ext='jpg';
+    const path=`${folder}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const{error}=await db.storage.from(MEDIA_BUCKET).upload(path,compressed.blob,{contentType:'image/jpeg',upsert:false,cacheControl:'31536000'});
+    if(!error){
+      const{data}=db.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+      if(data?.publicUrl)return data.publicUrl;
+    }
+  }catch(e){/* bucket может ещё не быть — ок */}
+  return compressed.dataUrl;
+}
+async function persistImageAttachment(file){
+  if(file.type?.startsWith('image/')){
+    const url=await persistImage(file,{folder:'visit-files',maxSize:1280,quality:0.75});
+    return{name:file.name.replace(/\.\w+$/,'')+'.jpg',size:Math.round((url.startsWith('data:')?url.length*0.75:file.size)),type:'image/jpeg',data:url};
+  }
+  // Не-картинки — как раньше, dataURL (обычно небольшие docs)
+  return await new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=ev=>resolve({name:file.name,size:file.size,type:file.type,data:ev.target.result});
+    r.onerror=()=>resolve({name:file.name,size:file.size,type:file.type,data:''});
+    r.readAsDataURL(file);
+  });
+}
+
+function FastImg({src,alt='',style={},eager=false,onFail}){
+  const[ok,setOk]=useState(false);
+  const[err,setErr]=useState(false);
+  useEffect(()=>{setOk(false);setErr(false);},[src]);
+  if(!src||err)return null;
+  return <img
+    src={src}
+    alt={alt}
+    loading={eager?'eager':'lazy'}
+    decoding="async"
+    onLoad={()=>setOk(true)}
+    onError={()=>{setErr(true);onFail&&onFail();}}
+    style={{...style,opacity:ok?1:0,transition:'opacity .2s ease',background:ok?'transparent':'#f1e7ff'}}
+  />;
+}
+
 function DoctorAvatar({doctor,size=36}){
-  if(doctor?.photo) return <img src={doctor.photo} alt="" style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',border:`2px solid ${doctor.color||C.accent}`,flexShrink:0}}/>;
+  const[broken,setBroken]=useState(false);
+  useEffect(()=>setBroken(false),[doctor?.photo]);
+  if(doctor?.photo&&!broken) return <FastImg src={doctor.photo} onFail={()=>setBroken(true)} style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',border:`2px solid ${doctor.color||C.accent}`,flexShrink:0}}/>;
   const ini=doctor?.name?doctor.name.split(' ').map(w=>w[0]).slice(0,2).join(''):'?';
   return <div style={{width:size,height:size,borderRadius:'50%',background:(doctor?.color||C.accent)+'18',border:`2px solid ${doctor?.color||C.accent}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.35,fontWeight:700,color:doctor?.color||C.accent,flexShrink:0}}>{ini}</div>;
 }
@@ -93,10 +190,32 @@ function useTable(table,orderCol='created_at',orderAsc=false,fields='*'){
     setLoading(false);
   },[table,fields]);
   useEffect(()=>{load();},[load]);
-  const insert=async row=>{const{data:ins,error}=await db.from(table).insert(row).select().single();if(error)console.error('insert error',table,error);setData(p=>[...(p||[]),ins].filter(Boolean));return ins;};
-  const update=async(id,ch)=>{await db.from(table).update(ch).eq('id',id);setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));};
+  const stripLocal=row=>{
+    if(!row||typeof row!=='object')return row;
+    const out={};
+    for(const k of Object.keys(row)){if(!k.startsWith('_'))out[k]=row[k];}
+    return out;
+  };
+  const insert=async row=>{
+    const payload=stripLocal(row);
+    const{data:ins,error}=await db.from(table).insert(payload).select().single();
+    if(error)console.error('insert error',table,error);
+    const merged=ins?{...ins,...Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('_')))}:null;
+    setData(p=>[...(p||[]),merged].filter(Boolean));
+    return merged;
+  };
+  const update=async(id,ch)=>{
+    const payload=stripLocal(ch);
+    if(Object.keys(payload).length)await db.from(table).update(payload).eq('id',id);
+    setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));
+  };
   const remove=async id=>{await db.from(table).delete().eq('id',id);setData(p=>p.filter(r=>r.id!==id));};
-  return{data,loading,load,insert,update,remove};
+  const mergeLocal=(rowsOrMap)=>{
+    const map=Array.isArray(rowsOrMap)?Object.fromEntries(rowsOrMap.map(r=>[r.id,r])):rowsOrMap;
+    setData(p=>p.map(r=>map[r.id]?{...r,...map[r.id]}:r));
+  };
+  const patchLocal=(id,ch)=>setData(p=>p.map(r=>r.id===id?{...r,...ch}:r));
+  return{data,loading,load,insert,update,remove,mergeLocal,patchLocal,setData};
 }
 
 const EMR_TMPL=[
@@ -557,7 +676,7 @@ function DoctorForm({form,setForm,saveDoc,saving,editing,fileRef,handlePhoto,slo
 
   return <div style={{display:'flex',flexDirection:'column',gap:12}}>
     <div style={{display:'flex',gap:14,alignItems:'center'}}>
-      <div onClick={()=>fileRef.current.click()} style={{cursor:'pointer',flexShrink:0}}>{form.photo?<img src={form.photo} style={{width:64,height:64,borderRadius:'50%',objectFit:'cover',border:`3px solid ${form.color}`}}/>:<div style={{width:64,height:64,borderRadius:'50%',background:form.color+'18',border:`2px dashed ${form.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:form.color}}>📷</div>}</div>
+      <div onClick={()=>fileRef.current.click()} style={{cursor:'pointer',flexShrink:0}}>{form.photo?<FastImg eager src={form.photo} style={{width:64,height:64,borderRadius:'50%',objectFit:'cover',border:`3px solid ${form.color}`}}/>:<div style={{width:64,height:64,borderRadius:'50%',background:form.color+'18',border:`2px dashed ${form.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:form.color}}>📷</div>}</div>
       <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handlePhoto}/>
       <input placeholder="ФИО врача *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
     </div>
@@ -645,11 +764,45 @@ function DoctorsTab({doctors,specialties}){
     const matchSpec=specFilters.some(f=>docSpecs.some(ds=>ds.toLowerCase().includes(f.toLowerCase())));
     return matchSearch&&matchSpec;
   });
-  const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);};
+  const ensureDoctorPhoto=async(d)=>{
+    if(!d)return d;
+    if(d.photo)return d;
+    try{
+      const{data}=await db.from('clinic_doctors').select('photo').eq('id',d.id).single();
+      if(data?.photo){
+        let photo=data.photo;
+        if(photo.startsWith('data:image')&&photo.length>200000)photo=await recompressDataUrl(photo,{maxSize:480,quality:0.7});
+        doctors.patchLocal(d.id,{photo});
+        return{...d,photo};
+      }
+    }catch{}
+    return d;
+  };
+  const openEdit=async(d)=>{
+    const full=await ensureDoctorPhoto(d);
+    setForm({name:full.name,specialty:full.specialty||'',phone:full.phone||'',description:full.description||'',photo:full.photo||'',color:full.color||DC[0],work_start:full.work_start||'08:00',work_end:full.work_end||'18:00',active:full.active});
+    setSel(full);setEditing(true);
+  };
+  const openCard=async(d)=>{
+    const full=await ensureDoctorPhoto(d);
+    setSel(full);
+  };
+  const handlePhoto=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    setSaving(true);
+    try{
+      const url=await persistImage(f,{folder:'doctors',maxSize:480,quality:0.7});
+      setForm(x=>({...x,photo:url}));
+    }finally{setSaving(false);if(fileRef.current)fileRef.current.value='';}
+  };
   const saveDoc=async()=>{
     if(!form.name.trim())return;setSaving(true);
     const data={...form};
     delete data.specialtyCustom;
+    // Пережимаем старые огромные dataURL при сохранении
+    if(data.photo&&data.photo.startsWith('data:image')&&data.photo.length>80000){
+      data.photo=await recompressDataUrl(data.photo,{maxSize:480,quality:0.7});
+    }
     if(editing){await doctors.update(sel.id,data);setSel({...sel,...data});setEditing(false);}
     else{await doctors.insert(data);setShowAdd(false);}
     setSaving(false);
@@ -712,13 +865,13 @@ function DoctorsTab({doctors,specialties}){
         {filtered.map(d=><Card key={d.id} style={{padding:'14px 16px',opacity:d.active?1:.6,borderLeft:`4px solid ${d.color}`}}>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <DoctorAvatar doctor={d} size={44}/>
-            <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>setSel(d)}>
+            <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>openCard(d)}>
               <div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:15,color:C.text}}>{d.name}</div>
               {d.specialty&&<div style={{color:d.color,fontSize:12,marginTop:2}}>{d.specialty}</div>}
               <div style={{color:C.muted,fontSize:11,marginTop:2}}>{d.work_start}–{d.work_end}</div>
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-              <button onClick={e=>{e.stopPropagation();setForm({name:d.name,specialty:d.specialty||'',phone:d.phone||'',description:d.description||'',photo:d.photo||'',color:d.color||DC[0],work_start:d.work_start||'08:00',work_end:d.work_end||'18:00',active:d.active});setSel(d);setEditing(true);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:8,padding:'5px 10px',fontSize:12,color:C.accent,fontWeight:600,cursor:'pointer'}}>✏️</button>
+              <button onClick={e=>{e.stopPropagation();openEdit(d);}} style={{background:C.accent+'18',border:`1px solid ${C.accent}33`,borderRadius:8,padding:'5px 10px',fontSize:12,color:C.accent,fontWeight:600,cursor:'pointer'}}>✏️</button>
               <div onClick={e=>{e.stopPropagation();doctors.update(d.id,{active:!d.active});}} style={{background:d.active?C.green+'18':C.muted+'18',border:`1px solid ${d.active?C.green:C.muted}44`,borderRadius:20,padding:'4px 10px',fontSize:11,color:d.active?C.green:C.muted,fontWeight:600,cursor:'pointer'}}>{d.active?'Работает':'Выходной'}</div>
             </div>
           </div>
@@ -730,7 +883,7 @@ function DoctorsTab({doctors,specialties}){
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
         <div style={{display:'flex',gap:14,alignItems:'center'}}><DoctorAvatar doctor={sel} size={60}/><div><div style={{fontFamily:'DM Sans,Arial,sans-serif',fontWeight:700,fontSize:18,color:C.text}}>{sel.name}</div>{sel.specialty&&<div style={{color:sel.color,fontSize:14}}>{sel.specialty}</div>}</div></div>
         <Card style={{padding:14}}><Row label="Телефон" value={sel.phone||'—'}/><Row label="Часы" value={`${sel.work_start}–${sel.work_end}`}/>{sel.description&&<div style={{color:C.muted,fontSize:13,marginTop:8,lineHeight:1.5}}>{sel.description}</div>}</Card>
-        <div style={{display:'flex',gap:10}}><Btn full outline color={C.accent} onClick={()=>{setForm({name:sel.name,specialty:sel.specialty||'',phone:sel.phone||'',description:sel.description||'',photo:sel.photo||'',color:sel.color||DC[0],work_start:sel.work_start||'08:00',work_end:sel.work_end||'18:00',active:sel.active});setEditing(true);}}>Редактировать</Btn><Btn outline color={C.red} onClick={async()=>{await doctors.remove(sel.id);setSel(null);}}>Удалить</Btn></div>
+        <div style={{display:'flex',gap:10}}><Btn full outline color={C.accent} onClick={()=>openEdit(sel)}>Редактировать</Btn><Btn outline color={C.red} onClick={async()=>{await doctors.remove(sel.id);setSel(null);}}>Удалить</Btn></div>
       </div>
     </Modal>}
     {editing&&<Modal title="Редактировать" onClose={()=>setEditing(false)}><DoctorForm form={form} setForm={setForm} saveDoc={saveDoc} saving={saving} editing={true} fileRef={fileRef} handlePhoto={handlePhoto} slots={slots} specialties={specialties}/></Modal>}
@@ -866,13 +1019,17 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose,services})
   const set=k=>e=>setForm(f=>({...f,[k]:e.target.value}));
   const setExam=(k,v)=>setForm(f=>({...f,exam_systems:{...f.exam_systems,[k]:v}}));
 
-  const handleFile=e=>{
+  const handleFile=async e=>{
     const files=[...e.target.files];
-    files.forEach(f=>{
-      const r=new FileReader();
-      r.onload=ev=>setForm(prev=>({...prev,files:[...prev.files,{name:f.name,size:f.size,type:f.type,data:ev.target.result}]}));
-      r.readAsDataURL(f);
-    });
+    if(!files.length)return;
+    setSaving(true);
+    try{
+      const attached=[];
+      for(const f of files){
+        attached.push(await persistImageAttachment(f));
+      }
+      setForm(prev=>({...prev,files:[...prev.files,...attached]}));
+    }finally{setSaving(false);if(fileRef.current)fileRef.current.value='';}
   };
 
   const save=async(status)=>{
@@ -1016,7 +1173,7 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose,services})
         {form.files.map((f,i)=><Card key={i} style={{padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}>
           <span style={{fontSize:22,flexShrink:0}}>{f.type?.startsWith('image')?'🖼️':'📄'}</span>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</div><div style={{fontSize:11,color:C.muted}}>{f.size?(f.size/1024).toFixed(1)+' KB':''}</div></div>
-          {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:48,height:48,objectFit:'cover',borderRadius:8,flexShrink:0}}/>}
+          {f.type?.startsWith('image')&&f.data&&<FastImg src={f.data} style={{width:48,height:48,objectFit:'cover',borderRadius:8,flexShrink:0}}/>}
           <button onClick={()=>setForm(pf=>({...pf,files:pf.files.filter((_,j)=>j!==i)}))} style={{background:'none',color:C.red,fontSize:18,padding:0,flexShrink:0}}>×</button>
         </Card>)}
       </div>}
@@ -1032,7 +1189,9 @@ function VisitForm({visit,patient,doctor,appointmentId,onSave,onClose,services})
 }
 
 function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,services}){
-  const visits=useTable('clinic_visits','created_at',false);
+  // Без files — иначе списки тянут мегабайты base64 и тормозят
+  const VISIT_LIST_FIELDS='id,patient_id,patient_name,doctor_id,doctor_name,appointment_id,date,time,service,service_name,service_amount,status,visit_type,complaints,anamnesis,anamnesis_life,allergies,general_condition,exam_systems,diagnosis,diagnosis_code,diagnosis_type,prescription,procedures,referrals,sick_leave,sick_leave_days,next_visit,created_at';
+  const visits=useTable('clinic_visits','created_at',false,VISIT_LIST_FIELDS);
   const[expandedId,setExpandedId]=useState(null);
   const[expandedForm,setExpandedForm]=useState(null);
   const[search,setSearch]=useState('');
@@ -1040,8 +1199,21 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,servi
   const[filterDoc,setFilterDoc]=useState('');
   const[dateFrom,setDateFrom]=useState('');
   const[dateTo,setDateTo]=useState('');
+  const[loadingFiles,setLoadingFiles]=useState(false);
 
   const myDoctor=user?.role==='doctor'?doctors.data.find(d=>String(d.id)===String(user.doctor_id)):null;
+
+  const ensureVisitFiles=async(visit)=>{
+    if(!visit||visit._type==='appt'||visit._filesLoaded)return visit;
+    setLoadingFiles(true);
+    try{
+      const{data,error}=await db.from('clinic_visits').select('files').eq('id',visit.id).single();
+      if(error)console.error('files load',error.message);
+      const files=data?.files||[];
+      visits.patchLocal(visit.id,{files,_filesLoaded:true});
+      return{...visit,files,_filesLoaded:true};
+    }finally{setLoadingFiles(false);}
+  };
 
   // Автоматически раскрыть карточку из расписания
   useEffect(()=>{
@@ -1085,14 +1257,24 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,servi
   }),[combined,search,filterStatus,filterDoc,dateFrom,dateTo,myDoctor]);
 
   const saveVisit=async(data,itemId)=>{
+    // Сжимаем уже лежащие в форме тяжёлые dataURL в files (на случай старых)
+    if(Array.isArray(data.files)){
+      data={...data,files:await Promise.all(data.files.map(async f=>{
+        if(f?.type?.startsWith('image')&&typeof f.data==='string'&&f.data.startsWith('data:image')&&f.data.length>120000){
+          const compressed=await recompressDataUrl(f.data,{maxSize:1280,quality:0.75});
+          return{...f,data:compressed,size:Math.round(compressed.length*0.75)};
+        }
+        return f;
+      }))};
+    }
     const existing=visits.data.find(v=>v.appointment_id===data.appointment_id||v.id===itemId);
-    if(existing){await visits.update(existing.id,data);}
-    else{await visits.insert(data);}
+    if(existing){await visits.update(existing.id,{...data,_filesLoaded:true});}
+    else{await visits.insert({...data,_filesLoaded:true});}
     setExpandedId(null);
     setExpandedForm(null);
   };
 
-  const toggleCard=(v)=>{
+  const toggleCard=async(v)=>{
     if(expandedId===v.id){setExpandedId(null);setExpandedForm(null);return;}
     setExpandedId(v.id);
     if(v._type==='appt'){
@@ -1100,7 +1282,13 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,servi
       const doctor=doctors.data.find(d=>String(d.id)===String(v.doctor_id))||{id:v.doctor_id,name:v.doctor_name};
       setExpandedForm({patient,doctor,appointment_id:v.appt_id,date:v.date,service:v.service,_isAppt:true});
     } else {
+      // Подгружаем тяжёлые files только при раскрытии
+      const full=await ensureVisitFiles(v);
       setExpandedForm(null);
+      // обновляем edit-кэш если уже редактировали
+      if(expandedForm?._editVisit?.id===v.id){
+        setExpandedForm(ef=>({...ef,_editVisit:{...ef._editVisit,files:full.files||[]}}));
+      }
     }
   };
 
@@ -1228,17 +1416,19 @@ function VisitsTab({user,patients,doctors,appts,pendingAppt,onClearPending,servi
                   {v.referrals&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:4}}>НАПРАВЛЕНИЯ</div><div style={{fontSize:13,background:C.card,borderRadius:10,padding:'10px 14px'}}>{v.referrals}</div></div>}
                   {v.sick_leave&&<div style={{background:C.card,borderRadius:10,padding:'10px 14px',borderLeft:`3px solid ${C.orange}`}}><span style={{fontSize:13,fontWeight:600}}>🏥 Больничный{v.sick_leave_days?` — ${v.sick_leave_days} дней`:''}</span></div>}
                   {v.next_visit&&<div style={{background:C.card,borderRadius:10,padding:'10px 14px'}}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>Следующий визит</div><div style={{fontSize:14,fontWeight:600,color:C.accent}}>{v.next_visit}</div></div>}
+                  {loadingFiles&&expandedId===v.id&&!v._filesLoaded&&<div style={{fontSize:12,color:C.muted}}>Загрузка файлов...</div>}
                   {v.files?.length>0&&<div><div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:.5,marginBottom:6}}>ФАЙЛЫ ({v.files.length})</div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                       {v.files.map((f,i)=><div key={i} style={{background:C.card,borderRadius:10,padding:'8px 12px',display:'flex',gap:8,alignItems:'center',fontSize:12}}>
                         <span>{f.type?.startsWith('image')?'🖼️':'📄'}</span><span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-                        {f.type?.startsWith('image')&&f.data&&<img src={f.data} style={{width:36,height:36,objectFit:'cover',borderRadius:6}}/>}
+                        {f.type?.startsWith('image')&&f.data&&<FastImg src={f.data} style={{width:36,height:36,objectFit:'cover',borderRadius:6}}/>}
                       </div>)}
                     </div>
                   </div>}
                   <div style={{display:'flex',gap:10,paddingTop:8,borderTop:`1px solid ${C.border}`}}>
-                    <Btn small outline color={C.accent} onClick={()=>{
-                      setExpandedForm({patient:{id:v.patient_id,name:v.patient_name},doctor:{id:v.doctor_id,name:v.doctor_name},_editVisit:v,appointment_id:v.appointment_id});
+                    <Btn small outline color={C.accent} onClick={async()=>{
+                      const full=await ensureVisitFiles(v);
+                      setExpandedForm({patient:{id:v.patient_id,name:v.patient_name},doctor:{id:v.doctor_id,name:v.doctor_name},_editVisit:full,appointment_id:v.appointment_id});
                     }}>✏️ Редактировать</Btn>
                     <Btn small outline color={C.red} onClick={async()=>{await visits.remove(v.id);setExpandedId(null);}}>Удалить</Btn>
                   </div>
@@ -1489,6 +1679,32 @@ function App({user,onLogout}){
       }catch{}
     })();
   },[]);
+  // Фото врачей — отдельным лёгким проходом после списка, чтобы UI не ждал мегабайты
+  useEffect(()=>{
+    if(doctors.loading||!doctors.data.length)return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const{data,error}=await db.from('clinic_doctors').select('id,photo');
+        if(error||cancelled||!data)return;
+        const mapped=[];
+        for(const r of data){
+          if(cancelled)return;
+          if(!r.photo){mapped.push(r);continue;}
+          if(typeof r.photo==='string'&&r.photo.startsWith('data:image')&&r.photo.length>120000){
+            try{
+              const photo=await recompressDataUrl(r.photo,{maxSize:480,quality:0.7});
+              mapped.push({id:r.id,photo});
+              // Пишем сжатую версию обратно — следующие загрузки будут быстрыми
+              if(photo!==r.photo)db.from('clinic_doctors').update({photo}).eq('id',r.id).then(()=>{});
+            }catch{mapped.push(r);}
+          }else mapped.push(r);
+        }
+        if(!cancelled)doctors.mergeLocal(mapped);
+      }catch(e){console.error('doctor photos',e);}
+    })();
+    return()=>{cancelled=true;};
+  },[doctors.loading,doctors.data.length]);
   const[pendingVisitAppt,setPendingVisitAppt]=useState(null);
 
   const handleOpenVisit=(appt)=>{
